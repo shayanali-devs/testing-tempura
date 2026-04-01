@@ -308,6 +308,35 @@ function applySettings(s) {
   if (s.phone)          document.querySelectorAll('.tp-phone').forEach(el    => el.textContent = s.phone);
   if (s.address)        document.querySelectorAll('.tp-address').forEach(el  => el.textContent = s.address);
   if (s.logoEmoji)      document.querySelectorAll('.tp-logo').forEach(el     => el.textContent = s.logoEmoji);
+
+  // ANNOUNCEMENT BAR — was completely missing, now fixed
+  const annBar = document.getElementById('ann-bar');
+  if (annBar) {
+    if (s.announcementBar && s.annShow) {
+      annBar.innerHTML = s.announcementBar;
+      annBar.style.display = 'block';
+    } else {
+      annBar.style.display = 'none';
+    }
+  }
+
+  // HERO CONTENT
+  if (s.heroLine1) { const el = document.querySelector('.ht1'); if (el) el.textContent = s.heroLine1; }
+  if (s.heroLine2) { const el = document.querySelector('.ht2'); if (el) el.textContent = s.heroLine2; }
+  if (s.heroSub)   { const el = document.querySelector('.hero-sub'); if (el) el.textContent = s.heroSub; }
+  if (s.heroBg)    {
+    document.querySelectorAll('.hero-slide').forEach((sl, i) => { if (i === 0) sl.style.backgroundImage = `url(${s.heroBg})`; });
+  }
+
+  // LOYALTY PROGRAM — show badge on menu items if enabled
+  if (s.loyaltyEnabled) {
+    const style = document.getElementById('loyalty-style') || document.createElement('style');
+    style.id = 'loyalty-style';
+    style.textContent = `.mc-body::after{content:"🌟 Earn points";display:block;font-size:10px;color:var(--yellow);margin-top:4px;opacity:.7;}`;
+    if (!document.getElementById('loyalty-style')) document.head.appendChild(style);
+  }
+
+  // MAINTENANCE MODE
   if (s.maintenanceMode && !window.location.pathname.includes('admin')) {
     document.body.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;text-align:center;padding:40px"><div><div style="font-size:64px;margin-bottom:16px">🔧</div><h1 style="font-family:sans-serif;font-size:32px;color:#f5c842;margin-bottom:12px">Under Maintenance</h1><p style="color:#888;font-size:16px">${s.maintenanceMsg||'We will be back shortly!'}</p></div></div>`;
   }
