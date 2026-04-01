@@ -152,138 +152,111 @@ body{cursor:auto!important;}#tp-cur{display:none!important;}
 <script src="main.js"></script>
 <script>
 let _dip = null, riderData = null, alertOrder = null, isOnline = true;
-let _riderAudioCtx = null;
-let _riderBeepInterval = null;
-let knownOrderIds = new Set();
-let _pollTimer = null;
+let alertAudio = null;
 
-// Pre-warm AudioContext on first user gesture (bypass autoplay policy)
-function _getRiderAudio() {
-  if (_riderAudioCtx) return _riderAudioCtx;
-  try { _riderAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
-  return _riderAudioCtx;
-}
-(function() {
-  function warm() {
-    _getRiderAudio();
-    if (_riderAudioCtx && _riderAudioCtx.state === 'suspended') _riderAudioCtx.resume();
-    document.removeEventListener('click', warm);
-    document.removeEventListener('touchstart', warm);
-  }
-  document.addEventListener('click', warm);
-  document.addEventListener('touchstart', warm);
-})();
-
-function playRiderBeep() {
-  const ctx = _getRiderAudio(); if (!ctx) return;
-  const go = () => {
-    try {
-      [0, 0.3, 0.6].forEach(t => {
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.frequency.value = 1050;
-        g.gain.setValueAtTime(0, ctx.currentTime + t);
-        g.gain.linearRampToValueAtTime(0.5, ctx.currentTime + t + 0.05);
-        g.gain.linearRampToValueAtTime(0, ctx.currentTime + t + 0.22);
-        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.25);
-      });
-    } catch(e) {}
-  };
-  ctx.state === 'suspended' ? ctx.resume().then(go) : go();
-}
+// Try to create alert audio
+try { alertAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAA=='); } catch(e) {}
 
 // PWA INSTALL
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault(); _dip = e;
-  document.getElementById('install-status').textContent = 'App ready to install!';
+  document.getElementById('install-status').textContent = '✅ App ready to install!';
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Enter key on code input
-  document.getElementById('rider-code').addEventListener('keydown', e => {
-    if (e.key === 'Enter') signInRider();
-  });
-
-  // Install button
-  document.getElementById('install-btn').addEventListener('click', async () => {
-    if (_dip) {
-      _dip.prompt();
-      const { outcome } = await _dip.userChoice;
-      _dip = null;
-      if (outcome === 'accepted') {
-        TP.showToast('Rider App installed! 🎉');
-        document.getElementById('install-status').textContent = 'Installed!';
-      }
-    } else {
-      document.getElementById('manual-box').style.display = 'block';
-      document.getElementById('manual-box').scrollIntoView({ behavior: 'smooth' });
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (_dip) {
+    _dip.prompt();
+    const { outcome } = await _dip.userChoice;
+    _dip = null;
+    if (outcome === 'accepted') {
+      TP.showToast('Rider App installed! 🎉');
+      document.getElementById('install-status').textContent = '✅ Installed!';
     }
-  });
-
-  // Check saved session — wait for TP to be ready first
-  (async () => {
-    await TP.waitForParse(10000);
-    const savedCode = localStorage.getItem('tp_rider_code');
-    const savedName = localStorage.getItem('tp_rider_name');
-    if (savedCode && savedName) {
-      riderData = { code: savedCode, name: savedName };
-      showDash();
-      startPolling();
-    }
-  })();
+  } else {
+    document.getElementById('manual-box').style.display = 'block';
+    document.getElementById('manual-box').scrollIntoView({ behavior: 'smooth' });
+  }
 });
 
-// SIGN IN
+// CHECK SAVED SESSION
+const savedCode = localStorage.getItem('tp_rider_code');
+const savedName = localStorage.getItem('tp_rider_name');
+if (savedCode && savedName) {
+  riderData = { code: savedCode, name: savedName };
+  showDash();
+  startPolling();
+}
+
+// ─── RIDER REST API — fixed URL encoding ──────────────────
+const R_APP_ID  = 'ixIM4zqufPHkk64t05Om6DJC17oL6LyPt46bSYhw';
+const R_JS_KEY  = 'V7FR7h3tpevohgrpIC6KC3XqnFe9zyGCg03eFO7a';
+const R_BASE    = 'https://parseapi.back4app.com/1/classes';
+const R_HEADERS = {
+  'X-Parse-Application-Id': R_APP_ID,
+  'X-Parse-JavaScript-Key': R_JS_KEY,
+  'Content-Type': 'application/json'
+};
+
+// FIXED: must use encodeURIComponent(JSON.stringify(where)) — NOT URLSearchParams
+async function riderRestQuery(className, where) {
+  const whereStr = encodeURIComponent(JSON.stringify(where));
+  const url  = `${R_BASE}/${className}?where=${whereStr}&limit=50`;
+  const res  = await fetch(url, { headers: R_HEADERS });
+  const text = await res.text();
+  if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text);
+  try { return (JSON.parse(text).results || []); }
+  catch(e) { throw new Error('Bad JSON: ' + text.substring(0,100)); }
+}
+
+async function riderUpdateREST(objectId, data) {
+  const res = await fetch(`${R_BASE}/Orders/${objectId}`, {
+    method: 'PUT', headers: R_HEADERS, body: JSON.stringify(data)
+  });
+  return res.ok;
+}
+
 window.signInRider = async function() {
   const codeInput = document.getElementById('rider-code');
-  const btn = document.querySelector('.rider-login-card .btn-p');
-  const err = document.getElementById('code-error');
-  const code = codeInput.value.trim().toUpperCase();
+  const err       = document.getElementById('code-error');
+  const btn       = document.querySelector('#login-card .btn-p');
+  const code      = (codeInput.value || '').trim().toUpperCase();
 
   err.style.display = 'none';
-  if (code.length < 4) {
-    err.textContent = 'Enter your 6-digit rider code.';
+  if (!code) {
+    err.textContent = 'Please enter your code.';
     err.style.display = 'block';
     return;
   }
 
-  if (btn) { btn.textContent = 'Signing in...'; btn.disabled = true; }
+  btn.textContent = 'Signing in...';
+  btn.disabled    = true;
 
   try {
-    const ready = await TP.waitForParse(10000);
-    if (!ready) {
-      // Offline/demo mode
-      riderData = { code, name: 'Demo Rider' };
-      localStorage.setItem('tp_rider_code', code);
-      localStorage.setItem('tp_rider_name', 'Demo Rider');
-      showDash(); startPolling(); return;
-    }
+    console.log('[Rider] Searching code:', code);
+    const results = await riderRestQuery('Riders', { code: code });
+    console.log('[Rider] Found:', results.length, results);
 
-    const q = new Parse.Query('Riders');
-    q.equalTo('code', code);
-    const result = await q.first();
-
-    if (!result) {
-      err.textContent = 'Invalid code. Contact your admin.';
+    if (!results.length) {
+      err.textContent = 'Code not found. Ask your admin for your code.';
       err.style.display = 'block';
+      btn.textContent = 'Sign In →';
+      btn.disabled    = false;
       return;
     }
 
-    riderData = result.toJSON();
+    riderData = results[0];
     localStorage.setItem('tp_rider_code', code);
     localStorage.setItem('tp_rider_name', riderData.name || 'Rider');
-
-    try { result.set('online', true); await result.save(); } catch(e) {}
-
     TP.showToast('Welcome, ' + (riderData.name || 'Rider') + '! 🛵');
     showDash();
     startPolling();
 
   } catch(e) {
+    console.error('[Rider] Error:', e.message);
     err.textContent = 'Error: ' + e.message;
     err.style.display = 'block';
-  } finally {
-    if (btn) { btn.textContent = 'Sign In →'; btn.disabled = false; }
+    btn.textContent = 'Sign In →';
+    btn.disabled    = false;
   }
 };
 
@@ -298,7 +271,6 @@ function riderLogout() {
   localStorage.removeItem('tp_rider_code');
   localStorage.removeItem('tp_rider_name');
   riderData = null;
-  if (_pollTimer) clearInterval(_pollTimer);
   document.getElementById('rider-page').style.display = 'flex';
   document.getElementById('rider-dash').style.display = 'none';
 }
@@ -307,100 +279,111 @@ window.setOnline = function(online) {
   isOnline = online;
   document.getElementById('online-btn').style.opacity  = online ? '1' : '.4';
   document.getElementById('offline-btn').style.opacity = online ? '.4' : '1';
-  if (typeof Parse !== 'undefined' && riderData && riderData.objectId) {
-    try {
-      const q = new Parse.Query('Riders');
-      q.get(riderData.objectId).then(r => { r.set('online', online); r.save(); });
-    } catch(e) {}
-  }
   TP.showToast(online ? 'You are now Online 🟢' : 'You are now Offline ⚫');
 };
 
 // POLL FOR ASSIGNED ORDERS
+let knownOrderIds = new Set();
 function startPolling() {
   pollOrders();
-  if (_pollTimer) clearInterval(_pollTimer);
-  _pollTimer = setInterval(pollOrders, 4000);
+  setInterval(pollOrders, 6000);
 }
 
 async function pollOrders() {
   if (!isOnline || !riderData) return;
-  if (!TP.isParseReady()) return;
   try {
-    const q = new Parse.Query('Orders');
-    q.equalTo('riderCode', riderData.code);
-    q.containedIn('status', ['accepted','preparing','onway']);
-    const results = await q.find();
-    const orders = results.map(r => r.toJSON());
-    renderRiderOrders(orders);
-    orders.forEach(o => {
-      const key = o.orderId || o.objectId;
-      if (!knownOrderIds.has(key)) {
-        knownOrderIds.add(key);
-        triggerOrderAlert(o);
+    const results = await riderRestQuery('Orders', {
+      riderCode: riderData.code,
+      status: { '$in': ['onway','preparing','accepted'] }
+    });
+    renderRiderOrders(results);
+    results.forEach(o => {
+      const id = o.orderId || o.objectId;
+      if (!knownOrderIds.has(id)) {
+        knownOrderIds.add(id);
+        if (knownOrderIds.size > 1) triggerOrderAlert(o);
       }
     });
-  } catch(e) { console.warn('Rider poll error:', e.message); }
+  } catch(e) { console.warn('[Rider] Poll error:', e.message); }
 }
 
 function triggerOrderAlert(order) {
   alertOrder = order;
   document.getElementById('alert-details').textContent =
-    (order.customerName || 'Customer') + ' · ' + (order.items||[]).length + ' items · Rs. ' + (order.total||0) + ' · ' + (order.address||'');
+    `${order.customerName||'Customer'} · ${(order.items||[]).length} items · Rs. ${order.total||0} · ${order.address||''}`;
   document.getElementById('order-alert-popup').style.display = 'flex';
-  playRiderBeep();
-  if (_riderBeepInterval) clearInterval(_riderBeepInterval);
-  _riderBeepInterval = setInterval(playRiderBeep, 2500);
+  // Play alert sound repeatedly until dismissed
+  if (alertAudio) { alertAudio.loop = true; try { alertAudio.play(); } catch(e) {} }
 }
 
 window.acceptFromAlert = function() {
   document.getElementById('order-alert-popup').style.display = 'none';
-  if (_riderBeepInterval) { clearInterval(_riderBeepInterval); _riderBeepInterval = null; }
+  if (alertAudio) { alertAudio.loop = false; alertAudio.pause(); }
   TP.showToast('Order accepted! Head to restaurant 🛵');
 };
 window.dismissAlert = function() {
   document.getElementById('order-alert-popup').style.display = 'none';
-  if (_riderBeepInterval) { clearInterval(_riderBeepInterval); _riderBeepInterval = null; }
+  if (alertAudio) { alertAudio.loop = false; alertAudio.pause(); }
 };
 
 function renderRiderOrders(orders) {
   const list = document.getElementById('rider-orders-list');
   if (!orders.length) {
-    list.innerHTML = '<div class="no-orders"><div class="no-orders-icon">📭</div><p>No orders assigned yet.<br/>Stay online to receive orders.</p></div>';
+    list.innerHTML = `<div class="no-orders"><div class="no-orders-icon">📭</div><p>No orders assigned yet.<br/>Stay online to receive orders.</p></div>`;
     return;
   }
   list.innerHTML = orders.map(o => {
-    const items = (o.items || []).map(i => i.name + ' ×' + i.qty).join(', ');
+    const items = (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ');
     const st = o.status || 'pending';
-    const stColor = {accepted:'var(--yellow)',preparing:'#2196F3',onway:'#9C27B0',delivered:'#4CAF50'}[st] || '#888';
-    return '<div class="rider-order-card">' +
-      '<div class="roc-header">' +
-        '<div class="roc-id">#' + (o.orderId||o.objectId||'—').slice(-6) + '</div>' +
-        '<span class="roc-status" style="background:' + stColor + '22;color:' + stColor + '">' + st + '</span>' +
-      '</div>' +
-      '<div class="roc-cust">' + (o.customerName||'Customer') + '</div>' +
-      '<div class="roc-addr">📍 ' + (o.address||'Pickup only') + '</div>' +
-      '<div class="roc-items">' + items + '</div>' +
-      '<div class="roc-total">Rs. ' + (o.total||0) + '</div>' +
-      '<div class="roc-btns">' +
-        (st==='accepted' ? '<button class="roc-btn onway" onclick="updateStatus('' + (o.orderId||o.objectId) + '','onway')">🛵 Start Delivery</button>' : '') +
-        (st==='onway'    ? '<button class="roc-btn deliver" onclick="updateStatus('' + (o.orderId||o.objectId) + '','delivered')">✅ Mark Delivered</button>' : '') +
-        (o.phone ? '<a href="tel:' + o.phone + '" class="roc-btn call">📞 Call Customer</a>' : '') +
-        (o.location ? '<a href="https://maps.google.com/?q=' + o.location.lat + ',' + o.location.lng + '" target="_blank" class="roc-btn call">📍 Navigate</a>' : '') +
-      '</div>' +
-    '</div>';
+    const stColor = {accepted:'var(--yellow)',preparing:'#2196F3',onway:'#9C27B0',delivered:'#4CAF50'}[st]||'#888';
+    return `<div class="rider-order-card ${!knownOrderIds.has(o.orderId) ? 'roc-alert' : ''}">
+      <div class="roc-header">
+        <div class="roc-id">#${(o.orderId||o.objectId||'—').slice(-6)}</div>
+        <span class="roc-status" style="background:${stColor}22;color:${stColor}">${st}</span>
+      </div>
+      <div class="roc-cust">${o.customerName||'Customer'}</div>
+      <div class="roc-addr">📍 ${o.address||'Pickup only'}</div>
+      <div class="roc-items">${items}</div>
+      <div class="roc-total">Rs. ${o.total||0}</div>
+      <div class="roc-btns">
+        ${st==='accepted'?`<button class="roc-btn onway" onclick="updateStatus('${o.orderId||o.objectId}','onway')">🛵 Start Delivery</button>`:''}
+        ${st==='onway'?`<button class="roc-btn deliver" onclick="updateStatus('${o.orderId||o.objectId}','delivered')">✅ Mark Delivered</button>`:''}
+        ${o.phone?`<a href="tel:${o.phone}" class="roc-btn call">📞 Call Customer</a>`:''}
+        ${o.location?`<a href="https://maps.google.com/?q=${o.location.lat},${o.location.lng}" target="_blank" class="roc-btn call">📍 Navigate</a>`:''}
+      </div>
+    </div>`;
   }).join('');
 }
 
 window.updateStatus = async function(orderId, status) {
   try {
-    await TP.b4aUpdateOrderStatus(orderId, status);
-    TP.showToast('Status → ' + status + ' ✅');
-    pollOrders();
-  } catch(e) { TP.showToast('Update failed: ' + e.message, 'error'); }
+    // Find order by orderId field first
+    const results = await riderRestQuery('Orders', { orderId: orderId });
+    const order   = results[0] || null;
+    const pid     = order?.objectId;
+    if (!pid) { TP.showToast('Order not found', 'error'); return; }
+    const log = order.statusLog || {};
+    log[status] = Date.now();
+    const ok = await riderUpdateREST(pid, { status, statusLog: log });
+    if (ok) {
+      TP.showToast('Status → ' + status + ' ✅');
+      pollOrders();
+    } else {
+      TP.showToast('Update failed', 'error');
+    }
+  } catch(e) {
+    TP.showToast('Error: ' + e.message, 'error');
+  }
 };
 
-// Register Service Worker for PWA
+// Demo orders for testing
+function renderDemoOrders() {
+  const demo = [{orderId:'demo001',customerName:'Hassan Raza',address:'Gulberg, Lahore',phone:'+923001234567',items:[{name:'Zinger Burger',qty:2},{name:'Loaded Fries',qty:1}],total:880,status:'accepted',location:{lat:31.5204,lng:74.3587}}];
+  if (!knownOrderIds.has('demo001')) { knownOrderIds.add('demo001'); if (knownOrderIds.size > 1) triggerOrderAlert(demo[0]); }
+  renderRiderOrders(demo);
+}
+
+// Register SW for Rider PWA
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
