@@ -501,14 +501,12 @@ function doLogin() {
 document.getElementById('a-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 function doLogout() { localStorage.removeItem('tp_asess'); location.reload(); }
 
-// Auto-login — wrapped in DOMContentLoaded so main.js has fully run and window.TP exists
-document.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem('tp_asess')) {
-    document.getElementById('a-login').style.display = 'none';
-    document.getElementById('a-app').style.display   = 'block';
-    startAdmin();
-  }
-});
+// Auto-login if session exists
+if (localStorage.getItem('tp_asess')) {
+  document.getElementById('a-login').style.display = 'none';
+  document.getElementById('a-app').style.display   = 'block';
+  startAdmin();
+}
 
 // ─── PANEL NAVIGATION ──────────────────────────────────────
 const PTitles = {
@@ -528,53 +526,75 @@ function showP(name, el) {
   document.getElementById('sidebar').classList.remove('open');
   if (name === 'analytics') setTimeout(initCharts, 100);
   if (name === 'maintenance') buildMaintList();
-  if (name === 'content') loadContentSettings();
-  if (name === 'branding') loadBrandingSettings();
+}
+
+// ─── BACK4APP REST CONFIG (direct — no SDK needed for polling) ──
+const B4A_APP_ID  = 'ixIM4zqufPHkk64t05Om6DJC17oL6LyPt46bSYhw';
+const B4A_JS_KEY  = 'V7FR7h3tpevohgrpIC6KC3XqnFe9zyGCg03eFO7a';
+const B4A_BASE    = 'https://parseapi.back4app.com/1/classes';
+const B4A_HEADERS = { 'X-Parse-Application-Id': B4A_APP_ID, 'X-Parse-JavaScript-Key': B4A_JS_KEY, 'Content-Type': 'application/json' };
+
+// Direct REST fetch — faster, no SDK dependency, works even if Parse SDK fails
+async function restQuery(className, where, limit) {
+  const params = new URLSearchParams({ limit: limit || 1000, order: '-createdAt' });
+  if (where) params.set('where', JSON.stringify(where));
+  const res = await fetch(`${B4A_BASE}/${className}?${params}`, { headers: B4A_HEADERS });
+  if (!res.ok) throw new Error('REST ' + res.status + ' ' + await res.text());
+  const data = await res.json();
+  return data.results || [];
+}
+async function restUpdate(className, objectId, data) {
+  const res = await fetch(`${B4A_BASE}/${className}/${objectId}`, { method:'PUT', headers: B4A_HEADERS, body: JSON.stringify(data) });
+  if (!res.ok) throw new Error('REST PUT ' + res.status);
+  return await res.json();
+}
+async function restSave(className, data) {
+  const res = await fetch(`${B4A_BASE}/${className}`, { method:'POST', headers: B4A_HEADERS, body: JSON.stringify(data) });
+  if (!res.ok) throw new Error('REST POST ' + res.status);
+  return await res.json();
+}
+async function restDelete(className, objectId) {
+  const res = await fetch(`${B4A_BASE}/${className}/${objectId}`, { method:'DELETE', headers: B4A_HEADERS });
+  if (!res.ok) throw new Error('REST DELETE ' + res.status);
 }
 
 // ─── STATE ──────────────────────────────────────────────────
-// allOrders: keyed by orderId (our custom field), value = parsed JSON
-let allOrders  = {};
-let allRiders  = {};
-let allPromos  = {};
-let alertOId   = null;
-let knownIds   = new Set();  // IDs seen on first load — alerts only for NEW ones
+let allOrders   = {};
+let allRiders   = {};
+let allPromos   = {};
+let alertOId    = null;
+let knownIds    = new Set();
 let orderFilter = 'all';
 let pollTimer   = null;
 let isFirstLoad = true;
+let audioUnlocked = false;
+
+// Unlock audio on first click (browsers require user gesture)
+document.addEventListener('click', () => { audioUnlocked = true; }, { once: true });
 
 // ─── START ──────────────────────────────────────────────────
 async function startAdmin() {
-  // Clock
   setInterval(() => {
     document.getElementById('aclock').textContent = new Date().toLocaleString('en-PK',{dateStyle:'medium',timeStyle:'short'});
   }, 1000);
 
+  renderMenuTable();
   setConnState('loading', 'Connecting to Back4App...');
 
-  // Wait for TP/Parse to be fully ready (handles CDN load delay)
-  if (typeof TP === 'undefined' || !TP.waitForParse) {
-    // TP not ready yet — wait for it
-    await new Promise(resolve => {
-      const t = setInterval(() => { if (typeof TP !== 'undefined' && TP.waitForParse) { clearInterval(t); resolve(); } }, 100);
-      setTimeout(() => { clearInterval(t); resolve(); }, 8000);
-    });
+  // Test connection with a direct REST call (no SDK dependency)
+  try {
+    await restQuery('Orders', null, 1);
+    setConnState('ok', 'Connected ✅');
+  } catch(e) {
+    setConnState('err', 'Connection failed: ' + e.message);
+    logC('REST connection failed: ' + e.message, 'err');
+    // Still try to continue — SDK might work
   }
 
-  const ready = await TP.waitForParse(10000);
-  if (!ready) {
-    setConnState('err', 'Back4App connection failed — check keys');
-    logC('Parse SDK did not initialize. Check your App ID and JS Key.', 'err');
-    return;
-  }
-
-  setConnState('loading', 'Loading data...');
   await loadAll();
-  setConnState('ok', 'Connected ✅ · Live updates ON');
 
-  // Poll every 3 seconds for snappy real-time updates
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(pollOrders, 3000);
+  // Poll every 4 seconds using REST API directly
+  pollTimer = setInterval(pollOrders, 4000);
 }
 
 function setConnState(state, label) {
@@ -584,47 +604,58 @@ function setConnState(state, label) {
   lbl.textContent = label;
 }
 
-// ─── LOAD ALL DATA ──────────────────────────────────────────
-// This is called once on startup and on manual refresh
-// It fetches ALL orders, riders, promos, reviews from Back4App
+// ─── LOAD ALL DATA — uses REST API directly ──────────────────
 async function loadAll() {
-  logC('Fetching all data from Back4App...', 'info');
+  logC('Fetching all data...', 'info');
   try {
-    // ORDERS — fetch ALL, no filter
-    const oRes = await TP.b4aQuery('Orders', null, 1000);
-    // IMPORTANT: Replace allOrders completely on full load
-    // But preserve statusLog from existing data if not in response
+    // ORDERS
+    const oRes = await restQuery('Orders', null, 1000);
     allOrders = {};
     oRes.forEach(o => {
-      const d   = o.toJSON();
-      const key = d.orderId || d.objectId;
-      allOrders[key] = { ...d, _pid: d.objectId };
+      const key = o.orderId || o.objectId;
+      allOrders[key] = { ...o, _pid: o.objectId };
     });
-    // Mark all as known on first load so we don't alert for old orders
     if (isFirstLoad) {
       Object.keys(allOrders).forEach(id => knownIds.add(id));
-      // isFirstLoad will be set to false by pollOrders after first poll completes
+      isFirstLoad = false;
     }
     logC('Loaded ' + Object.keys(allOrders).length + ' orders', 'info');
     renderDash();
     renderAllOrders();
 
     // RIDERS
-    const rRes = await TP.b4aQuery('Riders', null, 200);
+    const rRes = await restQuery('Riders', null, 200);
     allRiders = {};
-    rRes.forEach(r => { const d = r.toJSON(); allRiders[d.code] = d; });
+    rRes.forEach(r => { allRiders[r.code] = r; });
     renderRidersTable();
     document.getElementById('s-rid').textContent = rRes.length;
 
     // PROMO CODES
-    const pRes = await TP.b4aQuery('PromoCodes', null, 200);
+    const pRes = await restQuery('PromoCodes', null, 200);
     allPromos = {};
-    pRes.forEach(p => { const d = p.toJSON(); allPromos[d.code] = d; });
+    pRes.forEach(p => { allPromos[p.code] = p; });
     renderPromoTable();
 
     // REVIEWS
-    const revRes = await TP.b4aQuery('Reviews', null, 200);
-    renderReviewsTable(revRes.map(r => r.toJSON()));
+    const revRes = await restQuery('Reviews', null, 200);
+    renderReviewsTable(revRes);
+
+    // SETTINGS — load into forms
+    const sRes = await restQuery('Settings', null, 1);
+    if (sRes.length) {
+      const s = sRes[0];
+      if (s.restaurantName) document.getElementById('b-name').value = s.restaurantName;
+      if (s.tagline)        document.getElementById('b-tag').value  = s.tagline;
+      if (s.phone)          document.getElementById('b-phone').value = s.phone;
+      if (s.address)        document.getElementById('b-addr').value  = s.address;
+      if (s.logoEmoji)      document.getElementById('b-logo').value  = s.logoEmoji;
+      if (s.accentColor)  { document.getElementById('b-col').value = s.accentColor; document.getElementById('b-col-hex').value = s.accentColor; }
+      if (s.announcementBar) document.getElementById('ann').value   = s.announcementBar;
+      if (s.annShow)         document.getElementById('ann-show').checked = s.annShow;
+      if (s.waNumber)        document.getElementById('wa').value    = s.waNumber;
+      if (s.heroLine1)       document.getElementById('h-l1').value  = s.heroLine1;
+      if (s.heroLine2)       document.getElementById('h-l2').value  = s.heroLine2;
+    }
 
     setConnState('ok', 'Connected ✅');
   } catch(e) {
@@ -633,50 +664,29 @@ async function loadAll() {
   }
 }
 
-// ─── POLL — merges updates, never wipes ─────────────────────
+// ─── POLL — REST API, always merges, never wipes ─────────────
 async function pollOrders() {
-  if (!TP.isParseReady()) return;
   try {
-    const res = await TP.b4aQuery('Orders', null, 1000);
-    let hasNew = false;
-    let hasChanged = false;
+    const res = await restQuery('Orders', null, 1000);
+    let changed = false;
     res.forEach(o => {
-      const d   = o.toJSON();
-      const key = d.orderId || d.objectId;
+      const key  = o.orderId || o.objectId;
       const prev = allOrders[key];
-      allOrders[key] = { ...d, _pid: d.objectId };
+      allOrders[key] = { ...o, _pid: o.objectId };
 
-      // It's a genuinely new order (not seen before)
       if (!knownIds.has(key)) {
+        // Brand new order not seen before
         knownIds.add(key);
-        if (!isFirstLoad) {
-          hasNew = true;
-          // Alert for any new order regardless of status (pending most important)
-          if (d.status === 'pending') {
-            triggerAlert(key, d);
-          }
+        if (o.status === 'pending') {
+          triggerAlert(key, o);
         }
-        hasChanged = true;
-      } else if (prev && prev.status !== d.status) {
-        // Status changed on another device/tab
-        hasChanged = true;
+        changed = true;
+      } else if (prev && prev.status !== o.status) {
+        changed = true;
       }
     });
-    // Also detect if any order was deleted
-    if (res.length !== Object.keys(allOrders).length) hasChanged = true;
-
-    if (hasChanged) {
-      renderDash();
-      renderAllOrders();
-      // Flash the refresh indicator
-      const dot = document.getElementById('conn-dot');
-      if (dot && !hasNew) {
-        dot.style.background = '#f5c842';
-        setTimeout(() => { if (TP.isParseReady()) dot.style.background = '#4CAF50'; }, 400);
-      }
-    }
-    if (isFirstLoad) isFirstLoad = false;
-  } catch(e) { /* silent — don't disrupt UI on transient errors */ }
+    if (changed) { renderDash(); renderAllOrders(); }
+  } catch(e) { /* silent */ }
 }
 
 // ─── DASHBOARD ──────────────────────────────────────────────
@@ -742,104 +752,79 @@ function renderOrderRows(tbody, orders, full) {
   }).join('');
 }
 
-// ─── SET ORDER STATUS ───────────────────────────────────────
-// FIX: Updates Back4App first, then updates local cache
-// This means the admin panel always reflects the real database state
+// ─── SET ORDER STATUS — REST API ────────────────────────────
 async function setOStatus(id, status) {
-  logC('Updating order ' + id.slice(-6) + ' → ' + status, 'dbg');
-
-  // Update UI immediately for responsiveness
+  // Update local cache immediately
   if (allOrders[id]) allOrders[id].status = status;
   renderDash(); renderAllOrders();
   TP.showToast('Order #' + id.slice(-6) + ' → ' + status);
 
-  // Dismiss alert if this was the alerted order
-  if (alertOId === id) document.getElementById('oa-ov').classList.remove('show');
-
-  // Now update Back4App
-  const result = await TP.b4aUpdateOrderStatus(id, status);
-  if (result) {
-    logC('Order ' + id.slice(-6) + ' updated in Back4App ✅', 'info');
-  } else {
-    logC('Failed to update order ' + id.slice(-6) + ' in Back4App', 'err');
-    TP.showToast('DB sync error — will retry on next poll', 'error');
+  // Find objectId and update via REST
+  const order = allOrders[id];
+  const pid   = order?._pid || order?.objectId;
+  if (!pid) { logC('No objectId for order ' + id, 'err'); return; }
+  try {
+    const log = order.statusLog || {};
+    log[status] = Date.now();
+    await restUpdate('Orders', pid, { status, statusLog: log });
+    logC('Order ' + id.slice(-6) + ' → ' + status + ' ✅', 'info');
+  } catch(e) {
+    logC('Update failed: ' + e.message, 'err');
+    TP.showToast('DB sync error', 'error');
   }
 }
 
 function openAssignRider(orderId) {
   const name  = prompt('Enter rider name:');  if (!name) return;
   const phone = prompt('Enter rider phone:'); if (!phone) return;
-  if (allOrders[orderId]) {
-    allOrders[orderId].riderName  = name;
-    allOrders[orderId].riderPhone = phone;
-    allOrders[orderId].status     = 'onway';
+  const order = allOrders[orderId];
+  if (order) { order.riderName = name; order.riderPhone = phone; order.status = 'onway'; }
+  const pid = order?._pid || order?.objectId;
+  if (pid) {
+    const log = order.statusLog || {}; log['onway'] = Date.now();
+    restUpdate('Orders', pid, { status:'onway', riderName:name, riderPhone:phone, statusLog:log }).catch(e => logC('Assign rider error:'+e.message,'err'));
   }
-  TP.b4aUpdateOrderStatus(orderId, 'onway', { riderName:name, riderPhone:phone });
   renderDash(); renderAllOrders();
   TP.showToast('Rider assigned: ' + name + ' ✅');
 }
 
-// ─── ORDER ALERT ────────────────────────────────────────────
-let _alertSoundInterval = null;
-let _audioCtx = null;
+// ─── ORDER ALERT — with working sound ───────────────────────
+let alertBeepInterval = null;
 
-// Pre-warm AudioContext on FIRST user gesture so browser allows sound later
-function _ensureAudioCtx() {
-  if (_audioCtx) return _audioCtx;
-  try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
-  return _audioCtx;
+function playBeep() {
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine'; osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5);
+  } catch(e) {}
 }
-// Attach once to document to capture the first click/keydown
-(function() {
-  function warmup() {
-    _ensureAudioCtx();
-    // Resume if suspended (Chrome policy)
-    if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
-    document.removeEventListener('click', warmup);
-    document.removeEventListener('keydown', warmup);
-  }
-  document.addEventListener('click', warmup);
-  document.addEventListener('keydown', warmup);
-})();
 
-function playAlertBeep() {
-  const ctx = _ensureAudioCtx();
-  if (!ctx) return;
-  // Resume if suspended
-  const play = () => {
-    try {
-      [0, 0.28, 0.56].forEach(offset => {
-        const osc  = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, ctx.currentTime + offset);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + offset + 0.1);
-        gain.gain.setValueAtTime(0, ctx.currentTime + offset);
-        gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + offset + 0.05);
-        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + offset + 0.22);
-        osc.start(ctx.currentTime + offset);
-        osc.stop(ctx.currentTime + offset + 0.25);
-      });
-    } catch(e) {}
-  };
-  if (ctx.state === 'suspended') ctx.resume().then(play);
-  else play();
+function startBeeping() {
+  stopBeeping();
+  playBeep();
+  alertBeepInterval = setInterval(playBeep, 1500);
+}
+
+function stopBeeping() {
+  if (alertBeepInterval) { clearInterval(alertBeepInterval); alertBeepInterval = null; }
 }
 
 function triggerAlert(id, order) {
   alertOId = id;
   document.getElementById('oa-s').textContent = `${order.customer?.name || order.customerName || 'Customer'} · ${(order.items||[]).length} items · Rs. ${order.total || 0}`;
   document.getElementById('oa-ov').classList.add('show');
-  playAlertBeep();
-  if (_alertSoundInterval) clearInterval(_alertSoundInterval);
-  _alertSoundInterval = setInterval(playAlertBeep, 2500);
+  startBeeping();
 }
-
-function stopAlertSound() {
-  if (_alertSoundInterval) { clearInterval(_alertSoundInterval); _alertSoundInterval = null; }
-}
-window.doOAOrder = function(s) { if (alertOId) setOStatus(alertOId, s); document.getElementById('oa-ov').classList.remove('show'); stopAlertSound(); };
+window.doOAOrder = function(s) {
+  if (alertOId) setOStatus(alertOId, s);
+  document.getElementById('oa-ov').classList.remove('show');
+  stopBeeping();
+};
 
 // ─── EXPORT CSV ─────────────────────────────────────────────
 function exportCSV() {
@@ -892,266 +877,103 @@ function initCharts() {
 }
 
 // ─── MENU TABLE ─────────────────────────────────────────────
-let localMenu = [];
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof TP !== 'undefined' && TP.MENU) localMenu = JSON.parse(JSON.stringify(TP.MENU));
-  renderMenuTable();
-});
+let localMenu = TP.MENU ? JSON.parse(JSON.stringify(TP.MENU)) : [];
 function renderMenuTable() {
   const tb = document.getElementById('menu-tb');
   tb.innerHTML = localMenu.map(item => `<tr>
     <td><img src="${item.img}" style="width:50px;height:40px;object-fit:cover;border-radius:6px"/></td>
-    <td>${item.name}</td>
-    <td><span class="bd ba">${item.cat}</span></td>
+    <td>${item.name}</td><td><span class="bd ba">${item.cat}</span></td>
     <td style="font-family:var(--font);font-size:18px;color:var(--yellow)">Rs.${item.price}</td>
     <td>${item.hot?'🔥':''}${item.bestseller?'⭐':''}</td>
     <td><input type="number" value="${item.price}" style="background:var(--black4);border:1px solid rgba(255,255,255,.1);color:var(--white);padding:5px 8px;border-radius:6px;width:88px;font-size:13px" onchange="updatePrice('${item.id}',this.value)"/></td>
-    <td><label style="cursor:pointer"><span class="ab2">📷 Change</span><input type="file" accept="image/*" style="display:none" onchange="upItemImg('${item.id}',this)"/></label></td>
+    <td><label style="cursor:pointer"><span class="ab2">📷</span><input type="file" accept="image/*" style="display:none" onchange="upItemImg('${item.id}',this)"/></label></td>
     <td><label class="tog" style="transform:scale(.8)"><input type="checkbox" ${item.available!==false?'checked':''} onchange="toggleItem('${item.id}',this.checked)"/><span class="tog-sl"></span></label></td>
     <td><button class="ab2 r" onclick="removeItem('${item.id}')">Remove</button></td>
   </tr>`).join('');
 }
-function updatePrice(id, p) { const m=localMenu.find(i=>i.id===id); if(m) m.price=Number(p); TP.showToast('Price updated'); }
-function toggleItem(id, v)  { const m=localMenu.find(i=>i.id===id); if(m) m.available=v; }
-function removeItem(id)      { if(!confirm('Remove?'))return; localMenu=localMenu.filter(i=>i.id!==id); renderMenuTable(); TP.showToast('Removed'); }
-async function upItemImg(id, input) {
-  const file=input.files[0]; if(!file) return;
-  TP.showToast('Uploading...');
-  try { const url=await TP.uploadToImgBB(file); const m=localMenu.find(i=>i.id===id); if(m) m.img=url; renderMenuTable(); TP.showToast('Image updated ✅'); }
-  catch(e) { TP.showToast('Upload failed','error'); }
-}
-async function previewNI(input) {
-  const file=input.files[0]; if(!file) return;
-  const p=document.getElementById('ni-prog'), pv=document.getElementById('ni-prev');
-  p.style.display='block'; p.textContent='Uploading to ImgBB...';
-  try { const url=await TP.uploadToImgBB(file); document.getElementById('ni-url').value=url; pv.src=url; pv.style.display='block'; p.textContent='✅ Uploaded!'; }
-  catch(e) { p.textContent='Failed. Paste URL manually.'; }
-}
-function addItem() {
-  const name=document.getElementById('ni-name').value;
-  const cat=document.getElementById('ni-cat').value;
-  const price=Number(document.getElementById('ni-price').value);
-  const img=document.getElementById('ni-url').value||'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80';
-  const desc=document.getElementById('ni-desc').value;
-  if(!name||!price){TP.showToast('Fill in name and price','error');return;}
-  const item={id:'c_'+Date.now(),name,cat,price,img,desc,hot:document.getElementById('ni-hot').checked,bestseller:document.getElementById('ni-best').checked,available:document.getElementById('ni-avail').checked};
-  localMenu.push(item); TP.b4aSave('MenuItems',item); renderMenuTable(); TP.showToast(name+' added ✅');
-  ['ni-name','ni-price','ni-desc','ni-url'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-}
-function syncMenu() { localMenu.forEach(item=>TP.b4aSave('MenuItems',item)); TP.showToast('Menu synced to Back4App ✅'); }
+function updatePrice(id,p){const m=localMenu.find(i=>i.id===id);if(m)m.price=Number(p);TP.showToast('Price updated');}
+function toggleItem(id,v){const m=localMenu.find(i=>i.id===id);if(m)m.available=v;}
+function removeItem(id){if(!confirm('Remove?'))return;localMenu=localMenu.filter(i=>i.id!==id);renderMenuTable();TP.showToast('Removed');}
+async function upItemImg(id,input){const file=input.files[0];if(!file)return;TP.showToast('Uploading...');try{const url=await TP.uploadToImgBB(file);const m=localMenu.find(i=>i.id===id);if(m)m.img=url;renderMenuTable();TP.showToast('Image updated ✅');}catch(e){TP.showToast('Upload failed','error');}}
+async function previewNI(input){const file=input.files[0];if(!file)return;const p=document.getElementById('ni-prog'),pv=document.getElementById('ni-prev');p.style.display='block';p.textContent='Uploading...';try{const url=await TP.uploadToImgBB(file);document.getElementById('ni-url').value=url;pv.src=url;pv.style.display='block';p.textContent='✅ Uploaded!';}catch(e){p.textContent='Failed. Paste URL manually.';}}
+function addItem(){const name=document.getElementById('ni-name').value,cat=document.getElementById('ni-cat').value,price=Number(document.getElementById('ni-price').value),img=document.getElementById('ni-url').value||'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80',desc=document.getElementById('ni-desc').value;if(!name||!price){TP.showToast('Fill in name and price','error');return;}const item={id:'c_'+Date.now(),name,cat,price,img,desc,hot:document.getElementById('ni-hot').checked,bestseller:document.getElementById('ni-best').checked,available:document.getElementById('ni-avail').checked};localMenu.push(item);restSave('MenuItems',item).catch(()=>{});renderMenuTable();TP.showToast(name+' added ✅');['ni-name','ni-price','ni-desc','ni-url'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});}
+function syncMenu(){localMenu.forEach(item=>restSave('MenuItems',item).catch(()=>{}));TP.showToast('Menu synced ✅');}
 
-// ─── PROMO CODES ────────────────────────────────────────────
-async function createPromo() {
-  const code=document.getElementById('pc-code').value.trim().toUpperCase();
-  const disc=Number(document.getElementById('pc-disc').value)/100;
-  if(!code||!disc){TP.showToast('Code and discount required','error');return;}
-  const exp=document.getElementById('pc-exp').value;
-  const lim=Number(document.getElementById('pc-lim').value)||0;
-  const min=Number(document.getElementById('pc-min').value)||0;
-  const lbl=document.getElementById('pc-lbl').value;
-  const data={code,discount:disc,label:lbl,minOrder:min,usageCount:0,createdAt:Date.now()};
-  if(exp) data.expiry=new Date(exp).getTime();
-  if(lim) data.usageLimit=lim;
-  await TP.b4aSave('PromoCodes',data);
-  TP.showToast('Code '+code+' created ✅');
-  ['pc-code','pc-disc','pc-lbl','pc-min','pc-lim','pc-exp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  await loadAll();
-}
-function renderPromoTable() {
-  const tb=document.getElementById('promo-tb');
-  const list=Object.entries(allPromos);
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:24px">No promo codes</td></tr>';return;}
-  const now=Date.now();
-  tb.innerHTML=list.map(([code,d])=>`<tr>
-    <td style="font-family:monospace;font-weight:700;color:var(--yellow);font-size:16px;letter-spacing:2px">${code}</td>
-    <td>${Math.round((d.discount||0)*100)}%</td>
-    <td>Rs. ${d.minOrder||0}</td>
-    <td>${d.expiry?new Date(d.expiry).toLocaleDateString():'Never'}</td>
-    <td>${d.usageCount||0}</td>
-    <td>${d.usageLimit||'∞'}</td>
-    <td><span class="${d.expiry&&d.expiry<now?'ps-e':'ps-a'}">${d.expiry&&d.expiry<now?'Expired':'Active'}</span></td>
-    <td><button class="ab2 r" onclick="deletePromo('${d.objectId||''}')">Delete</button></td>
-  </tr>`).join('');
-}
-async function deletePromo(oid) {
-  if(!confirm('Delete?'))return;
-  if(oid) await TP.b4aDelete('PromoCodes',oid);
-  TP.showToast('Code deleted'); await loadAll();
+// ─── PROMO CODES ─────────────────────────────────────────────
+async function createPromo(){const code=document.getElementById('pc-code').value.trim().toUpperCase(),disc=Number(document.getElementById('pc-disc').value)/100;if(!code||!disc){TP.showToast('Code and discount required','error');return;}const exp=document.getElementById('pc-exp').value,lim=Number(document.getElementById('pc-lim').value)||0,min=Number(document.getElementById('pc-min').value)||0,lbl=document.getElementById('pc-lbl').value;const data={code,discount:disc,label:lbl,minOrder:min,usageCount:0};if(exp)data.expiry=new Date(exp).getTime();if(lim)data.usageLimit=lim;try{await restSave('PromoCodes',data);TP.showToast('Code '+code+' created ✅');}catch(e){TP.showToast('Error: '+e.message,'error');return;}['pc-code','pc-disc','pc-lbl','pc-min','pc-lim','pc-exp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});await loadAll();}
+function renderPromoTable(){const tb=document.getElementById('promo-tb');const list=Object.entries(allPromos);if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:24px">No promo codes</td></tr>';return;}const now=Date.now();tb.innerHTML=list.map(([code,d])=>`<tr><td style="font-family:monospace;font-weight:700;color:var(--yellow);font-size:16px;letter-spacing:2px">${code}</td><td>${Math.round((d.discount||0)*100)}%</td><td>Rs. ${d.minOrder||0}</td><td>${d.expiry?new Date(d.expiry).toLocaleDateString():'Never'}</td><td>${d.usageCount||0}</td><td>${d.usageLimit||'∞'}</td><td><span class="${d.expiry&&d.expiry<now?'ps-e':'ps-a'}">${d.expiry&&d.expiry<now?'Expired':'Active'}</span></td><td><button class="ab2 r" onclick="deletePromo('${d.objectId||''}')">Delete</button></td></tr>`).join('');}
+async function deletePromo(oid){if(!confirm('Delete?'))return;if(oid){try{await restDelete('PromoCodes',oid);}catch(e){}}TP.showToast('Code deleted');await loadAll();}
+
+// ─── RIDERS ──────────────────────────────────────────────────
+async function regRider(){const name=document.getElementById('rr-name').value.trim(),phone=document.getElementById('rr-phone').value.trim();if(!name||!phone){TP.showToast('Name and phone required','error');return;}const code=Math.random().toString(36).substring(2,8).toUpperCase();const data={name,phone,vehicle:document.getElementById('rr-veh').value,cnic:document.getElementById('rr-cnic').value,code,status:'active',timestamp:Date.now()};try{await restSave('Riders',data);}catch(e){TP.showToast('Error: '+e.message,'error');return;}document.getElementById('rcode-show').textContent=code;document.getElementById('rcode-box').style.display='block';TP.showToast('Rider registered! Code: '+code);await loadAll();}
+function renderRidersTable(){const tb=document.getElementById('riders-tb');const list=Object.values(allRiders);if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gray);padding:24px">No riders registered</td></tr>';return;}tb.innerHTML=list.map(r=>`<tr><td>${r.name}</td><td>${r.phone}</td><td>${r.vehicle||'—'}</td><td style="font-family:monospace;color:var(--yellow);font-size:16px;letter-spacing:3px">${r.code}</td><td><span class="bd bde">${r.status||'active'}</span></td><td><button class="ab2 r" onclick="removeRider('${r.objectId||''}')">Remove</button></td></tr>`).join('');}
+async function removeRider(oid){if(!confirm('Remove rider?'))return;if(oid){try{await restDelete('Riders',oid);}catch(e){}}TP.showToast('Rider removed');await loadAll();}
+
+// ─── REVIEWS ─────────────────────────────────────────────────
+function renderReviewsTable(revs){const tb=document.getElementById('reviews-tb');if(!revs||!revs.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gray);padding:24px">No reviews yet</td></tr>';return;}tb.innerHTML=revs.map(r=>`<tr><td>${r.userName||'Customer'}</td><td style="color:var(--yellow)">${'★'.repeat(r.stars||5)}</td><td style="max-width:260px;font-size:13px;color:rgba(255,255,255,.7)">${r.text||''}</td><td style="font-size:11px;color:var(--gray)">${r.createdAt?new Date(r.createdAt).toLocaleDateString():''}</td><td><span class="${r.approved?'ps-a':'ps-e'}">${r.approved?'Approved':'Pending'}</span></td><td style="display:flex;gap:5px"><button class="ab2 g" onclick="approveReview('${r.objectId}')">Approve</button><button class="ab2 r" onclick="deleteReview('${r.objectId}')">Delete</button></td></tr>`).join('');}
+async function approveReview(oid){try{await restUpdate('Reviews',oid,{approved:true});}catch(e){}TP.showToast('Approved');await loadAll();}
+async function deleteReview(oid){if(!confirm('Delete?'))return;try{await restDelete('Reviews',oid);}catch(e){}TP.showToast('Deleted');await loadAll();}
+
+// ─── SETTINGS HELPER ─────────────────────────────────────────
+async function saveSettings(data){
+  try{
+    const existing=await restQuery('Settings',null,1);
+    if(existing.length) await restUpdate('Settings',existing[0].objectId,data);
+    else await restSave('Settings',data);
+    const cached=JSON.parse(localStorage.getItem('tp_settings')||'{}');
+    localStorage.setItem('tp_settings',JSON.stringify({...cached,...data}));
+    TP.applySettings(data);
+  }catch(e){logC('Settings error: '+e.message,'err');throw e;}
 }
 
-// ─── RIDERS ─────────────────────────────────────────────────
-async function regRider() {
-  const name=document.getElementById('rr-name').value, phone=document.getElementById('rr-phone').value;
-  if(!name||!phone){TP.showToast('Name and phone required','error');return;}
-  const code=Math.random().toString(36).substring(2,8).toUpperCase();
-  const data={name,phone,vehicle:document.getElementById('rr-veh').value,cnic:document.getElementById('rr-cnic').value,code,status:'active',timestamp:Date.now()};
-  await TP.b4aSave('Riders',data);
-  document.getElementById('rcode-show').textContent=code;
-  document.getElementById('rcode-box').style.display='block';
-  TP.showToast('Rider registered! Code: '+code);
-  await loadAll();
-}
-function renderRidersTable() {
-  const tb=document.getElementById('riders-tb');
-  const list=Object.values(allRiders);
-  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gray);padding:24px">No riders registered</td></tr>';return;}
-  tb.innerHTML=list.map(r=>`<tr>
-    <td>${r.name}</td><td>${r.phone}</td><td>${r.vehicle||'—'}</td>
-    <td style="font-family:monospace;color:var(--yellow);font-size:16px;letter-spacing:3px">${r.code}</td>
-    <td><span class="bd bde">${r.status||'active'}</span></td>
-    <td><button class="ab2 r" onclick="removeRider('${r.objectId||''}')">Remove</button></td>
-  </tr>`).join('');
-}
-async function removeRider(oid) {
-  if(!confirm('Remove rider?'))return;
-  if(oid) await TP.b4aDelete('Riders',oid);
-  TP.showToast('Rider removed'); await loadAll();
+// ─── BRANDING ────────────────────────────────────────────────
+async function saveBrand(){const s={restaurantName:document.getElementById('b-name').value,tagline:document.getElementById('b-tag').value,logoEmoji:document.getElementById('b-logo').value,phone:document.getElementById('b-phone').value,address:document.getElementById('b-addr').value};try{await saveSettings(s);TP.showToast('Brand saved ✅');}catch(e){TP.showToast('Error: '+e.message,'error');}}
+async function saveColors(){const col=document.getElementById('b-col').value,bg=document.getElementById('b-bg').value,cr=document.getElementById('b-cr').value;document.documentElement.style.setProperty('--yellow',col);document.documentElement.style.setProperty('--black',bg);document.documentElement.style.setProperty('--radius',cr);try{await saveSettings({accentColor:col,bgColor:bg,cardRadius:cr});TP.showToast('Colors saved ✅');}catch(e){TP.showToast('Error','error');}}
+async function uploadHero(input){const file=input.files[0];if(!file)return;const p=document.getElementById('h1prog');p.style.display='block';p.textContent='Uploading...';try{const url=await TP.uploadToImgBB(file);document.getElementById('h1url').value=url;document.getElementById('h1p').src=url;document.getElementById('h1p').style.display='block';p.textContent='✅ Done!';}catch(e){p.textContent='Failed';}}
+async function saveHeroImg(){const url=document.getElementById('h1url').value;if(!url){TP.showToast('No URL','error');return;}try{await saveSettings({heroBg:url});TP.showToast('Hero image saved ✅');}catch(e){TP.showToast('Error','error');}}
+async function saveOrdSettings(){const s={waNumber:document.getElementById('wa').value,deliveryFee:Number(document.getElementById('delfee').value),freeDeliveryAbove:Number(document.getElementById('freedel').value),deliveryRadius:Number(document.getElementById('delrad').value)};try{await saveSettings(s);TP.showToast('Settings saved ✅');}catch(e){TP.showToast('Error','error');}}
+
+// ─── ANNOUNCEMENT — FIXED ────────────────────────────────────
+async function saveAnn(){
+  const text=document.getElementById('ann').value.trim();
+  const show=document.getElementById('ann-show').checked;
+  try{
+    await saveSettings({announcementBar:text,annShow:show});
+    TP.showToast('Announcement saved ✅');
+  }catch(e){TP.showToast('Error: '+e.message,'error');}
 }
 
-// ─── REVIEWS ────────────────────────────────────────────────
-function renderReviewsTable(revs) {
-  const tb=document.getElementById('reviews-tb');
-  if(!revs.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gray);padding:24px">No reviews yet</td></tr>';return;}
-  tb.innerHTML=revs.map(r=>`<tr>
-    <td>${r.userName||'Customer'}</td>
-    <td style="color:var(--yellow)">${'★'.repeat(r.stars||5)}</td>
-    <td style="max-width:280px;font-size:13px;color:rgba(255,255,255,.7)">${r.text}</td>
-    <td style="font-size:11px;color:var(--gray)">${r.createdAt?new Date(r.createdAt).toLocaleDateString():''}</td>
-    <td><span class="${r.approved?'ps-a':'ps-e'}">${r.approved?'Approved':'Pending'}</span></td>
-    <td style="display:flex;gap:5px">
-      <button class="ab2 g" onclick="approveReview('${r.objectId}')">Approve</button>
-      <button class="ab2 r" onclick="deleteReview('${r.objectId}')">Delete</button>
-    </td>
-  </tr>`).join('');
-}
-async function approveReview(id){await TP.b4aUpdate('Reviews',id,{approved:true});TP.showToast('Approved');await loadAll();}
-async function deleteReview(id){if(!confirm('Delete review?'))return;await TP.b4aDelete('Reviews',id);TP.showToast('Deleted');await loadAll();}
+async function saveHeroContent(){const s={heroLine1:document.getElementById('h-l1').value,heroLine2:document.getElementById('h-l2').value,heroSub:document.getElementById('h-sub').value};try{await saveSettings(s);TP.showToast('Saved ✅');}catch(e){TP.showToast('Error','error');}}
+async function saveSEO(){const s={seoTitle:document.getElementById('seo-t').value,seoDesc:document.getElementById('seo-d').value,seoKeys:document.getElementById('seo-k').value};try{await saveSettings(s);TP.showToast('SEO saved ✅');}catch(e){TP.showToast('Error','error');}}
+async function saveHours(){const s={openTime:document.getElementById('oh-open').value,closeTime:document.getElementById('oh-close').value};try{await saveSettings(s);TP.showToast('Hours saved ✅');}catch(e){TP.showToast('Error','error');}}
 
-// ─── BRANDING ───────────────────────────────────────────────
-async function saveBrand() {
-  const s={restaurantName:document.getElementById('b-name').value,tagline:document.getElementById('b-tag').value,logoEmoji:document.getElementById('b-logo').value,phone:document.getElementById('b-phone').value,address:document.getElementById('b-addr').value};
-  await TP.b4aSave('Settings',s); localStorage.setItem('tp_settings',JSON.stringify({...JSON.parse(localStorage.getItem('tp_settings')||'{}'),...s}));
-  TP.applySettings(s); TP.showToast('Brand saved ✅');
-}
-async function saveColors() {
-  const col=document.getElementById('b-col').value, bg=document.getElementById('b-bg').value, cr=document.getElementById('b-cr').value;
-  document.documentElement.style.setProperty('--yellow',col); document.documentElement.style.setProperty('--black',bg); document.documentElement.style.setProperty('--radius',cr);
-  const s={accentColor:col,bgColor:bg,cardRadius:cr};
-  await TP.b4aSave('Settings',s); const ex=JSON.parse(localStorage.getItem('tp_settings')||'{}'); localStorage.setItem('tp_settings',JSON.stringify({...ex,...s}));
-  TP.showToast('Colors saved — will apply to all pages on next load ✅');
-}
-async function uploadHero(input) {
-  const file=input.files[0]; if(!file) return;
-  const p=document.getElementById('h1prog'); p.style.display='block'; p.textContent='Uploading...';
-  try { const url=await TP.uploadToImgBB(file); document.getElementById('h1url').value=url; document.getElementById('h1p').src=url; document.getElementById('h1p').style.display='block'; p.textContent='✅ Done!'; }
-  catch(e) { p.textContent='Failed'; }
-}
-async function saveHeroImg() {
-  const url=document.getElementById('h1url').value; if(!url){TP.showToast('No URL','error');return;}
-  await TP.b4aSave('Settings',{heroBg:url}); TP.showToast('Hero image saved ✅');
-}
-async function saveOrdSettings() {
-  const s={waNumber:document.getElementById('wa').value,deliveryFee:Number(document.getElementById('delfee').value),freeDeliveryAbove:Number(document.getElementById('freedel').value),deliveryRadius:Number(document.getElementById('delrad').value)};
-  await TP.b4aSave('Settings',s); TP.showToast('Settings saved ✅');
-}
-// ─── LOAD CONTENT/BRANDING SETTINGS INTO FORMS ──────────────
-async function loadContentSettings() {
-  try {
-    const cached = JSON.parse(localStorage.getItem('tp_settings') || '{}');
-    // Apply cached immediately
-    if (cached.announcementBar !== undefined) document.getElementById('ann').value = cached.announcementBar;
-    if (cached.annShow !== undefined) document.getElementById('ann-show').checked = cached.annShow;
-    if (cached.heroLine1) document.getElementById('h-l1').value = cached.heroLine1;
-    if (cached.heroLine2) document.getElementById('h-l2').value = cached.heroLine2;
-    if (cached.heroSub)   document.getElementById('h-sub').value = cached.heroSub;
-    if (cached.seoTitle)  document.getElementById('seo-t').value = cached.seoTitle;
-    if (cached.seoDesc)   document.getElementById('seo-d').value = cached.seoDesc;
-    if (cached.seoKeys)   document.getElementById('seo-k').value = cached.seoKeys;
-    if (cached.openTime)  document.getElementById('oh-open').value = cached.openTime;
-    if (cached.closeTime) document.getElementById('oh-close').value = cached.closeTime;
-    // Fetch fresh from Back4App
-    if (TP.isParseReady()) {
-      const res = await TP.b4aQuery('Settings', null, 100);
-      // Merge all settings objects
-      const merged = {};
-      res.forEach(r => Object.assign(merged, r.toJSON()));
-      if (merged.announcementBar !== undefined) document.getElementById('ann').value = merged.announcementBar;
-      if (merged.annShow !== undefined) document.getElementById('ann-show').checked = !!merged.annShow;
-      if (merged.heroLine1) document.getElementById('h-l1').value = merged.heroLine1;
-      if (merged.heroLine2) document.getElementById('h-l2').value = merged.heroLine2;
-      if (merged.heroSub)   document.getElementById('h-sub').value = merged.heroSub;
-      if (merged.seoTitle)  document.getElementById('seo-t').value = merged.seoTitle;
-      if (merged.seoDesc)   document.getElementById('seo-d').value = merged.seoDesc;
-      if (merged.seoKeys)   document.getElementById('seo-k').value = merged.seoKeys;
-      if (merged.openTime)  document.getElementById('oh-open').value = merged.openTime;
-      if (merged.closeTime) document.getElementById('oh-close').value = merged.closeTime;
-    }
-  } catch(e) { logC('loadContentSettings: ' + e.message, 'warn'); }
-}
-
-async function loadBrandingSettings() {
-  try {
-    const cached = JSON.parse(localStorage.getItem('tp_settings') || '{}');
-    if (cached.restaurantName) document.getElementById('b-name').value = cached.restaurantName;
-    if (cached.tagline)        document.getElementById('b-tag').value = cached.tagline;
-    if (cached.logoEmoji)      document.getElementById('b-logo').value = cached.logoEmoji;
-    if (cached.phone)          document.getElementById('b-phone').value = cached.phone;
-    if (cached.address)        document.getElementById('b-addr').value = cached.address;
-    if (cached.accentColor)    { document.getElementById('b-col').value = cached.accentColor; document.getElementById('b-col-hex').value = cached.accentColor; }
-    if (cached.bgColor)        { document.getElementById('b-bg').value = cached.bgColor; document.getElementById('b-bg-hex').value = cached.bgColor; }
-    if (cached.waNumber)       document.getElementById('wa').value = cached.waNumber;
-    if (cached.deliveryFee)    document.getElementById('delfee').value = cached.deliveryFee;
-    if (cached.freeDeliveryAbove) document.getElementById('freedel').value = cached.freeDeliveryAbove;
-    if (cached.deliveryRadius) document.getElementById('delrad').value = cached.deliveryRadius;
-    if (cached.heroBg)         { document.getElementById('h1url').value = cached.heroBg; const p=document.getElementById('h1p'); if(p){p.src=cached.heroBg;p.style.display='block';} }
-  } catch(e) { logC('loadBrandingSettings: ' + e.message, 'warn'); }
-}
-
-async function saveAnn() {
-  const text = document.getElementById('ann').value;
-  const show = document.getElementById('ann-show').checked;
-  await TP.b4aSave('Settings', { announcementBar: text, annShow: show });
-  // Update local cache
-  const ex = JSON.parse(localStorage.getItem('tp_settings') || '{}');
-  localStorage.setItem('tp_settings', JSON.stringify({ ...ex, announcementBar: text, annShow: show }));
-  TP.showToast('Announcement saved ✅');
-}
-async function saveHeroContent() { await TP.b4aSave('Settings',{heroLine1:document.getElementById('h-l1').value,heroLine2:document.getElementById('h-l2').value,heroSub:document.getElementById('h-sub').value}); TP.showToast('Saved ✅'); }
-async function saveSEO() { await TP.b4aSave('Settings',{seoTitle:document.getElementById('seo-t').value,seoDesc:document.getElementById('seo-d').value,seoKeys:document.getElementById('seo-k').value}); TP.showToast('SEO saved ✅'); }
-async function saveHours() { await TP.b4aSave('Settings',{openTime:document.getElementById('oh-open').value,closeTime:document.getElementById('oh-close').value}); TP.showToast('Hours saved ✅'); }
-
-// ─── MAINTENANCE ────────────────────────────────────────────
-function buildMaintList() {
-  const now=Date.now(); const items=[];
-  const ssl=document.getElementById('m-ssl')?.value, dom=document.getElementById('m-dom-exp')?.value, prev=document.getElementById('m-prev')?.value;
-  if(ssl){const d=new Date(ssl),diff=Math.round((d-now)/86400000);items.push({title:'SSL Certificate',due:`Expires: ${d.toLocaleDateString()} (${diff}d)`,cls:diff<14?'urg':diff<30?'warn':''});}
-  if(dom){const d=new Date(dom),diff=Math.round((d-now)/86400000);items.push({title:'Domain Renewal',due:`Expires: ${d.toLocaleDateString()} (${diff}d)`,cls:diff<14?'urg':diff<30?'warn':''});}
-  if(prev){const next=new Date(new Date(prev).getTime()+30*86400000),diff=Math.round((next-now)/86400000);items.push({title:'Menu Price Review',due:`Next: ${next.toLocaleDateString()} (${diff}d)`,cls:diff<3?'urg':diff<7?'warn':''});}
-  items.push({title:'Promo Code Renewal',due:'Check monthly — codes may expire',cls:'warn'},{title:'Social Media Update',due:'Post regularly for engagement',cls:''},{title:'Back4App Usage',due:'Check free tier limits monthly',cls:''});
-  const cnt=items.filter(i=>i.cls==='urg').length;
-  const mb=document.getElementById('mb'); if(cnt){mb.classList.add('show');mb.textContent=cnt;}else mb.classList.remove('show');
-  const list=document.getElementById('maint-list'); if(!list)return;
-  list.innerHTML=items.map(item=>`<div class="mi ${item.cls}"><div><div class="mi-t">${item.title}</div><div class="mi-d">${item.due}</div></div><button class="mi-btn ${item.cls==='urg'?'r':''}" onclick="TP.showToast('Marked as resolved ✅')">Resolve</button></div>`).join('');
-}
-async function toggleMaint(){const on=document.getElementById('maint-tog').checked,msg=document.getElementById('maint-msg').value;await TP.b4aSave('Settings',{maintenanceMode:on,maintenanceMsg:msg});TP.showToast(on?'Maintenance ON ⚠️':'Maintenance OFF ✅');}
+// ─── MAINTENANCE ─────────────────────────────────────────────
+function buildMaintList(){const now=Date.now(),items=[];const ssl=document.getElementById('m-ssl')?.value,dom=document.getElementById('m-dom-exp')?.value,prev=document.getElementById('m-prev')?.value;if(ssl){const d=new Date(ssl),diff=Math.round((d-now)/86400000);items.push({title:'SSL Certificate',due:`Expires: ${d.toLocaleDateString()} (${diff}d)`,cls:diff<14?'urg':diff<30?'warn':''});}if(dom){const d=new Date(dom),diff=Math.round((d-now)/86400000);items.push({title:'Domain Renewal',due:`Expires: ${d.toLocaleDateString()} (${diff}d)`,cls:diff<14?'urg':diff<30?'warn':''});}if(prev){const next=new Date(new Date(prev).getTime()+30*86400000),diff=Math.round((next-now)/86400000);items.push({title:'Menu Price Review',due:`Next: ${next.toLocaleDateString()} (${diff}d)`,cls:diff<3?'urg':diff<7?'warn':''});}items.push({title:'Promo Code Renewal',due:'Check monthly',cls:'warn'},{title:'Social Media Update',due:'Post regularly',cls:''},{title:'Back4App Usage',due:'Monitor free tier limits',cls:''});const cnt=items.filter(i=>i.cls==='urg').length;const mb=document.getElementById('mb');if(cnt){mb.classList.add('show');mb.textContent=cnt;}else mb.classList.remove('show');const list=document.getElementById('maint-list');if(!list)return;list.innerHTML=items.map(item=>`<div class="mi ${item.cls}"><div><div class="mi-t">${item.title}</div><div class="mi-d">${item.due}</div></div><button class="mi-btn ${item.cls==='urg'?'r':''}" onclick="TP.showToast('Marked as resolved ✅')">Resolve</button></div>`).join('');}
+async function toggleMaint(){const on=document.getElementById('maint-tog').checked,msg=document.getElementById('maint-msg').value;try{await saveSettings({maintenanceMode:on,maintenanceMsg:msg});TP.showToast(on?'Maintenance ON ⚠️':'Maintenance OFF ✅');}catch(e){}}
 function saveMaint(){buildMaintList();TP.showToast('Saved ✅');}
 function markReview(){const t=new Date().toISOString().split('T')[0];document.getElementById('m-prev').value=t;document.getElementById('m-next').value=new Date(Date.now()+30*86400000).toISOString().split('T')[0];TP.showToast('Price review logged ✅');}
 
-// ─── DEV SETTINGS ───────────────────────────────────────────
+// ─── DEV SETTINGS ────────────────────────────────────────────
 function unlockDev(){if(document.getElementById('dev-pw').value===gDP()){document.getElementById('dev-locked').style.display='none';document.getElementById('dev-unlocked').style.display='block';}else{document.getElementById('dev-err').style.display='block';}}
 function savePWs(){const a=document.getElementById('np-admin').value,d=document.getElementById('np-dev').value;if(a)localStorage.setItem('tp_apw',a);if(d)localStorage.setItem('tp_dpw',d);TP.showToast('Passwords updated ✅');}
 function applyCSS(){const css=document.getElementById('custom-css').value;let s=document.getElementById('cust-sty');if(!s){s=document.createElement('style');s.id='cust-sty';document.head.appendChild(s);}s.textContent=css;TP.showToast('CSS applied ✅');}
-async function clearAllOrders(){const q=new Parse.Query('Orders');const res=await q.find();await Parse.Object.destroyAll(res);allOrders={};renderDash();renderAllOrders();TP.showToast('Orders cleared');}
-async function clearAllRiders(){const q=new Parse.Query('Riders');const res=await q.find();await Parse.Object.destroyAll(res);allRiders={};renderRidersTable();TP.showToast('Riders cleared');}
-async function resetAllSettings(){const q=new Parse.Query('Settings');const res=await q.find();await Parse.Object.destroyAll(res);localStorage.removeItem('tp_settings');TP.showToast('Settings reset');}
+async function clearAllOrders(){if(!confirm('Clear ALL orders?'))return;const res=await restQuery('Orders',null,1000);for(const o of res){try{await restDelete('Orders',o.objectId);}catch(e){}}allOrders={};renderDash();renderAllOrders();TP.showToast('Orders cleared');}
+async function clearAllRiders(){if(!confirm('Clear ALL riders?'))return;const res=await restQuery('Riders',null,200);for(const r of res){try{await restDelete('Riders',r.objectId);}catch(e){}}allRiders={};renderRidersTable();TP.showToast('Riders cleared');}
+async function resetAllSettings(){if(!confirm('Reset ALL settings?'))return;const res=await restQuery('Settings',null,10);for(const s of res){try{await restDelete('Settings',s.objectId);}catch(e){}}localStorage.removeItem('tp_settings');TP.showToast('Settings reset');}
 
-// ─── CONSOLE LOG ────────────────────────────────────────────
-function logC(msg, type) {
-  const c = document.getElementById('err-con'); if (!c) return;
-  const d = document.createElement('div'); d.className = type||'dbg';
-  d.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-  c.appendChild(d); c.scrollTop = c.scrollHeight;
-}
+// ─── LOYALTY TOGGLE — actually works now ─────────────────
+document.getElementById('loy-tog')?.addEventListener('change', async function() {
+  const on   = this.checked;
+  const rate = document.getElementById('loy-rate')?.value || 1;
+  const val  = document.getElementById('loy-val')?.value  || 1;
+  try {
+    await saveSettings({ loyaltyEnabled: on, loyaltyRate: Number(rate), loyaltyValue: Number(val) });
+    TP.showToast(on ? 'Loyalty program ENABLED ✅' : 'Loyalty program disabled');
+  } catch(e) { TP.showToast('Error: ' + e.message, 'error'); }
+});
+
+// ─── CONSOLE LOG ─────────────────────────────────────────────
+function logC(msg,type){const c=document.getElementById('err-con');if(!c)return;const d=document.createElement('div');d.className=type||'dbg';d.textContent='['+new Date().toLocaleTimeString()+'] '+msg;c.appendChild(d);c.scrollTop=c.scrollHeight;}
 </script>
 </body>
 </html>
