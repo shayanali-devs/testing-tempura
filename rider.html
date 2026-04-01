@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#0a0a0a"/>
+<title>Rider App — Tempura Potato</title>
+<link rel="manifest" href="manifest-rider.json"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<style>
+body{cursor:auto!important;}#tp-cur{display:none!important;}
+.rider-page{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;background:var(--black);}
+.rider-logo{font-size:64px;margin-bottom:10px;filter:drop-shadow(0 0 18px var(--yellow-g));}
+.rider-brand{font-family:var(--font);font-size:22px;color:var(--yellow);letter-spacing:3px;margin-bottom:4px;}
+.rider-page h1{font-family:var(--font);font-size:clamp(36px,8vw,62px);color:var(--white);margin-bottom:10px;letter-spacing:2px;}
+.rider-page h1 span{color:var(--yellow);}
+.rider-page .sub{font-size:15px;color:var(--gray);max-width:340px;line-height:1.7;margin-bottom:32px;}
+
+/* INSTALL BTN */
+.install-btn{background:var(--yellow);color:var(--black);border:none;padding:16px 32px;border-radius:30px;font-weight:800;font-size:16px;cursor:pointer;transition:var(--tr);margin-bottom:10px;display:inline-block;}
+.install-btn:hover{background:var(--yellow-d);transform:scale(1.03);}
+.install-status{font-size:13px;color:var(--gray);margin-bottom:26px;}
+
+/* LOGIN CARD */
+.rider-login-card{background:var(--black3);border:1px solid rgba(245,200,66,.22);border-radius:20px;padding:32px;max-width:400px;width:100%;margin-bottom:24px;}
+.rider-login-card h2{font-family:var(--font);font-size:24px;color:var(--white);margin-bottom:20px;letter-spacing:1px;}
+.code-input{width:100%;background:var(--black4);border:2px solid rgba(245,200,66,.3);color:var(--yellow);padding:16px;border-radius:12px;font-size:28px;font-family:var(--font);text-align:center;letter-spacing:10px;outline:none;text-transform:uppercase;margin-bottom:16px;transition:border-color .3s;}
+.code-input:focus{border-color:var(--yellow);}
+.code-error{color:#F44336;font-size:13px;margin-top:8px;display:none;}
+
+/* DASHBOARD */
+.rider-dash{display:none;width:100%;max-width:600px;}
+.rider-header{background:var(--black3);border:1px solid rgba(245,200,66,.2);border-radius:16px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.rider-header-left{display:flex;align-items:center;gap:14px;}
+.rider-avatar{width:52px;height:52px;background:var(--yellow);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;}
+.rider-welcome{font-weight:700;font-size:16px;color:var(--white);}
+.rider-code-badge{font-size:12px;color:var(--yellow);font-family:var(--font);letter-spacing:2px;margin-top:3px;}
+.status-toggle{display:flex;gap:10px;}
+.st-btn{padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:var(--tr);}
+.st-btn.online{background:#4CAF50;color:#fff;}
+.st-btn.offline{background:var(--black4);color:var(--gray);border:1px solid rgba(255,255,255,.1);}
+
+/* ORDERS */
+.orders-section{text-align:left;}
+.orders-section h3{font-family:var(--font);font-size:22px;color:var(--white);letter-spacing:1px;margin-bottom:16px;}
+.no-orders{background:var(--black3);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:40px;text-align:center;color:var(--gray);}
+.no-orders-icon{font-size:48px;margin-bottom:12px;}
+.rider-order-card{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);padding:22px;margin-bottom:16px;text-align:left;}
+.roc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.roc-id{font-size:12px;font-family:monospace;color:var(--gray);}
+.roc-status{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;}
+.roc-cust{font-weight:700;font-size:16px;color:var(--white);margin-bottom:4px;}
+.roc-addr{font-size:13px;color:var(--gray);margin-bottom:12px;}
+.roc-items{font-size:13px;color:rgba(255,255,255,.6);line-height:1.7;margin-bottom:14px;}
+.roc-total{font-family:var(--font);font-size:24px;color:var(--yellow);margin-bottom:14px;}
+.roc-btns{display:flex;gap:10px;flex-wrap:wrap;}
+.roc-btn{padding:11px 20px;border-radius:25px;font-weight:700;font-size:14px;cursor:pointer;border:none;transition:var(--tr);}
+.roc-btn.accept{background:#4CAF50;color:#fff;}
+.roc-btn.onway{background:var(--yellow);color:var(--black);}
+.roc-btn.deliver{background:#2196F3;color:#fff;}
+.roc-btn.call{background:var(--black4);color:var(--white);border:1px solid rgba(255,255,255,.1);}
+.roc-btn:hover{transform:scale(1.04);}
+.roc-alert{animation:alertShake .5s ease;}
+@keyframes alertShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+/* MANUAL INSTALL */
+.manual-box{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:26px;max-width:420px;width:100%;text-align:left;display:none;}
+.manual-box h3{font-family:var(--font);font-size:22px;color:var(--white);text-align:center;margin-bottom:18px;}
+.manual-step{display:flex;gap:14px;margin-bottom:16px;align-items:flex-start;}
+.ms-num{width:30px;height:30px;background:var(--yellow);color:var(--black);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;}
+.ms-text{font-size:14px;color:var(--gray);line-height:1.6;padding-top:3px;}
+.ms-text strong{color:var(--white);}
+</style>
+</head>
+<body>
+
+<!-- ORDER ALERT POPUP -->
+<div id="order-alert-popup" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--black3);border:2px solid var(--yellow);border-radius:24px;padding:36px;max-width:380px;width:100%;text-align:center;animation:popUp .4s ease;">
+    <div style="font-size:52px;animation:alertShake .5s ease infinite;margin-bottom:12px">🔔</div>
+    <div style="font-family:var(--font);font-size:28px;color:var(--yellow);margin-bottom:8px">New Order!</div>
+    <div id="alert-details" style="font-size:14px;color:var(--gray);margin-bottom:20px">Loading...</div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button onclick="acceptFromAlert()" style="background:#4CAF50;color:#fff;border:none;padding:13px 26px;border-radius:25px;font-weight:700;font-size:15px;cursor:pointer;">✅ Accept</button>
+      <button onclick="dismissAlert()" style="background:transparent;border:1px solid rgba(255,255,255,.15);color:var(--gray);padding:13px 26px;border-radius:25px;font-weight:700;font-size:15px;cursor:pointer;">Later</button>
+    </div>
+  </div>
+</div>
+
+<div class="rider-page" id="rider-page">
+  <div class="rider-logo">🛵</div>
+  <div class="rider-brand">TEMPURA POTATO</div>
+  <h1>Rider <span>Portal</span></h1>
+  <p class="sub">Install the app and sign in with your 6-digit code to start receiving delivery orders.</p>
+
+  <!-- INSTALL PROMPT -->
+  <button class="install-btn" id="install-btn">📱 Install Rider App</button>
+  <div class="install-status" id="install-status"></div>
+
+  <!-- LOGIN -->
+  <div class="rider-login-card" id="login-card">
+    <h2>Sign In with Rider Code</h2>
+    <input class="code-input" id="rider-code" type="text" maxlength="6" placeholder="XXXXXX" autocapitalize="characters"/>
+    <button class="btn-p" style="width:100%;font-size:16px;padding:14px" onclick="signInRider()">Sign In →</button>
+    <div class="code-error" id="code-error">Invalid code. Contact your admin.</div>
+  </div>
+
+  <!-- MANUAL INSTALL GUIDE -->
+  <div class="manual-box" id="manual-box">
+    <h3>How to Install Manually</h3>
+    <div class="manual-step"><div class="ms-num">1</div><div class="ms-text">Open this page in <strong>Chrome</strong> (Android) or <strong>Safari</strong> (iPhone/iPad)</div></div>
+    <div class="manual-step"><div class="ms-num">2</div><div class="ms-text">Tap the <strong>Share button</strong> (iPhone: □↑) or <strong>3-dot menu ⋮</strong> (Android Chrome)</div></div>
+    <div class="manual-step"><div class="ms-num">3</div><div class="ms-text">Scroll down and tap <strong>"Add to Home Screen"</strong></div></div>
+    <div class="manual-step"><div class="ms-num">4</div><div class="ms-text">Tap <strong>"Add"</strong> to confirm. The Rider App icon appears on your home screen!</div></div>
+  </div>
+</div>
+
+<!-- RIDER DASHBOARD -->
+<div class="rider-page" id="rider-dash" style="display:none;justify-content:flex-start;padding-top:80px;">
+  <div class="rider-dash">
+    <div class="rider-header">
+      <div class="rider-header-left">
+        <div class="rider-avatar">🛵</div>
+        <div>
+          <div class="rider-welcome" id="dash-name">Welcome, Rider</div>
+          <div class="rider-code-badge" id="dash-code">Code: ——</div>
+        </div>
+      </div>
+      <div class="status-toggle">
+        <button class="st-btn online" id="online-btn" onclick="setOnline(true)">🟢 Online</button>
+        <button class="st-btn offline" id="offline-btn" onclick="setOnline(false)">⚫ Offline</button>
+      </div>
+    </div>
+
+    <div class="orders-section">
+      <h3>Assigned Orders</h3>
+      <div id="rider-orders-list">
+        <div class="no-orders">
+          <div class="no-orders-icon">📭</div>
+          <p>No orders assigned yet.<br/>Stay online to receive orders.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;text-align:center;">
+      <button onclick="riderLogout()" style="background:none;border:1px solid rgba(255,255,255,.1);color:var(--gray);padding:10px 22px;border-radius:25px;cursor:pointer;font-size:14px;transition:var(--tr)">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/parse/dist/parse.min.js"></script>
+<script src="main.js"></script>
+<script>
+let _dip = null, riderData = null, alertOrder = null, isOnline = true;
+let _riderAudioCtx = null;
+let _riderBeepInterval = null;
+let knownOrderIds = new Set();
+let _pollTimer = null;
+
+// Pre-warm AudioContext on first user gesture (bypass autoplay policy)
+function _getRiderAudio() {
+  if (_riderAudioCtx) return _riderAudioCtx;
+  try { _riderAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  return _riderAudioCtx;
+}
+(function() {
+  function warm() {
+    _getRiderAudio();
+    if (_riderAudioCtx && _riderAudioCtx.state === 'suspended') _riderAudioCtx.resume();
+    document.removeEventListener('click', warm);
+    document.removeEventListener('touchstart', warm);
+  }
+  document.addEventListener('click', warm);
+  document.addEventListener('touchstart', warm);
+})();
+
+function playRiderBeep() {
+  const ctx = _getRiderAudio(); if (!ctx) return;
+  const go = () => {
+    try {
+      [0, 0.3, 0.6].forEach(t => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 1050;
+        g.gain.setValueAtTime(0, ctx.currentTime + t);
+        g.gain.linearRampToValueAtTime(0.5, ctx.currentTime + t + 0.05);
+        g.gain.linearRampToValueAtTime(0, ctx.currentTime + t + 0.22);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.25);
+      });
+    } catch(e) {}
+  };
+  ctx.state === 'suspended' ? ctx.resume().then(go) : go();
+}
+
+// PWA INSTALL
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); _dip = e;
+  document.getElementById('install-status').textContent = 'App ready to install!';
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Enter key on code input
+  document.getElementById('rider-code').addEventListener('keydown', e => {
+    if (e.key === 'Enter') signInRider();
+  });
+
+  // Install button
+  document.getElementById('install-btn').addEventListener('click', async () => {
+    if (_dip) {
+      _dip.prompt();
+      const { outcome } = await _dip.userChoice;
+      _dip = null;
+      if (outcome === 'accepted') {
+        TP.showToast('Rider App installed! 🎉');
+        document.getElementById('install-status').textContent = 'Installed!';
+      }
+    } else {
+      document.getElementById('manual-box').style.display = 'block';
+      document.getElementById('manual-box').scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+
+  // Check saved session — wait for TP to be ready first
+  (async () => {
+    await TP.waitForParse(10000);
+    const savedCode = localStorage.getItem('tp_rider_code');
+    const savedName = localStorage.getItem('tp_rider_name');
+    if (savedCode && savedName) {
+      riderData = { code: savedCode, name: savedName };
+      showDash();
+      startPolling();
+    }
+  })();
+});
+
+// SIGN IN
+window.signInRider = async function() {
+  const codeInput = document.getElementById('rider-code');
+  const btn = document.querySelector('.rider-login-card .btn-p');
+  const err = document.getElementById('code-error');
+  const code = codeInput.value.trim().toUpperCase();
+
+  err.style.display = 'none';
+  if (code.length < 4) {
+    err.textContent = 'Enter your 6-digit rider code.';
+    err.style.display = 'block';
+    return;
+  }
+
+  if (btn) { btn.textContent = 'Signing in...'; btn.disabled = true; }
+
+  try {
+    const ready = await TP.waitForParse(10000);
+    if (!ready) {
+      // Offline/demo mode
+      riderData = { code, name: 'Demo Rider' };
+      localStorage.setItem('tp_rider_code', code);
+      localStorage.setItem('tp_rider_name', 'Demo Rider');
+      showDash(); startPolling(); return;
+    }
+
+    const q = new Parse.Query('Riders');
+    q.equalTo('code', code);
+    const result = await q.first();
+
+    if (!result) {
+      err.textContent = 'Invalid code. Contact your admin.';
+      err.style.display = 'block';
+      return;
+    }
+
+    riderData = result.toJSON();
+    localStorage.setItem('tp_rider_code', code);
+    localStorage.setItem('tp_rider_name', riderData.name || 'Rider');
+
+    try { result.set('online', true); await result.save(); } catch(e) {}
+
+    TP.showToast('Welcome, ' + (riderData.name || 'Rider') + '! 🛵');
+    showDash();
+    startPolling();
+
+  } catch(e) {
+    err.textContent = 'Error: ' + e.message;
+    err.style.display = 'block';
+  } finally {
+    if (btn) { btn.textContent = 'Sign In →'; btn.disabled = false; }
+  }
+};
+
+function showDash() {
+  document.getElementById('rider-page').style.display = 'none';
+  document.getElementById('rider-dash').style.display = 'flex';
+  document.getElementById('dash-name').textContent = 'Welcome, ' + (riderData.name || 'Rider');
+  document.getElementById('dash-code').textContent  = 'Code: ' + (riderData.code || '——');
+}
+
+function riderLogout() {
+  localStorage.removeItem('tp_rider_code');
+  localStorage.removeItem('tp_rider_name');
+  riderData = null;
+  if (_pollTimer) clearInterval(_pollTimer);
+  document.getElementById('rider-page').style.display = 'flex';
+  document.getElementById('rider-dash').style.display = 'none';
+}
+
+window.setOnline = function(online) {
+  isOnline = online;
+  document.getElementById('online-btn').style.opacity  = online ? '1' : '.4';
+  document.getElementById('offline-btn').style.opacity = online ? '.4' : '1';
+  if (typeof Parse !== 'undefined' && riderData && riderData.objectId) {
+    try {
+      const q = new Parse.Query('Riders');
+      q.get(riderData.objectId).then(r => { r.set('online', online); r.save(); });
+    } catch(e) {}
+  }
+  TP.showToast(online ? 'You are now Online 🟢' : 'You are now Offline ⚫');
+};
+
+// POLL FOR ASSIGNED ORDERS
+function startPolling() {
+  pollOrders();
+  if (_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(pollOrders, 4000);
+}
+
+async function pollOrders() {
+  if (!isOnline || !riderData) return;
+  if (!TP.isParseReady()) return;
+  try {
+    const q = new Parse.Query('Orders');
+    q.equalTo('riderCode', riderData.code);
+    q.containedIn('status', ['accepted','preparing','onway']);
+    const results = await q.find();
+    const orders = results.map(r => r.toJSON());
+    renderRiderOrders(orders);
+    orders.forEach(o => {
+      const key = o.orderId || o.objectId;
+      if (!knownOrderIds.has(key)) {
+        knownOrderIds.add(key);
+        triggerOrderAlert(o);
+      }
+    });
+  } catch(e) { console.warn('Rider poll error:', e.message); }
+}
+
+function triggerOrderAlert(order) {
+  alertOrder = order;
+  document.getElementById('alert-details').textContent =
+    (order.customerName || 'Customer') + ' · ' + (order.items||[]).length + ' items · Rs. ' + (order.total||0) + ' · ' + (order.address||'');
+  document.getElementById('order-alert-popup').style.display = 'flex';
+  playRiderBeep();
+  if (_riderBeepInterval) clearInterval(_riderBeepInterval);
+  _riderBeepInterval = setInterval(playRiderBeep, 2500);
+}
+
+window.acceptFromAlert = function() {
+  document.getElementById('order-alert-popup').style.display = 'none';
+  if (_riderBeepInterval) { clearInterval(_riderBeepInterval); _riderBeepInterval = null; }
+  TP.showToast('Order accepted! Head to restaurant 🛵');
+};
+window.dismissAlert = function() {
+  document.getElementById('order-alert-popup').style.display = 'none';
+  if (_riderBeepInterval) { clearInterval(_riderBeepInterval); _riderBeepInterval = null; }
+};
+
+function renderRiderOrders(orders) {
+  const list = document.getElementById('rider-orders-list');
+  if (!orders.length) {
+    list.innerHTML = '<div class="no-orders"><div class="no-orders-icon">📭</div><p>No orders assigned yet.<br/>Stay online to receive orders.</p></div>';
+    return;
+  }
+  list.innerHTML = orders.map(o => {
+    const items = (o.items || []).map(i => i.name + ' ×' + i.qty).join(', ');
+    const st = o.status || 'pending';
+    const stColor = {accepted:'var(--yellow)',preparing:'#2196F3',onway:'#9C27B0',delivered:'#4CAF50'}[st] || '#888';
+    return '<div class="rider-order-card">' +
+      '<div class="roc-header">' +
+        '<div class="roc-id">#' + (o.orderId||o.objectId||'—').slice(-6) + '</div>' +
+        '<span class="roc-status" style="background:' + stColor + '22;color:' + stColor + '">' + st + '</span>' +
+      '</div>' +
+      '<div class="roc-cust">' + (o.customerName||'Customer') + '</div>' +
+      '<div class="roc-addr">📍 ' + (o.address||'Pickup only') + '</div>' +
+      '<div class="roc-items">' + items + '</div>' +
+      '<div class="roc-total">Rs. ' + (o.total||0) + '</div>' +
+      '<div class="roc-btns">' +
+        (st==='accepted' ? '<button class="roc-btn onway" onclick="updateStatus('' + (o.orderId||o.objectId) + '','onway')">🛵 Start Delivery</button>' : '') +
+        (st==='onway'    ? '<button class="roc-btn deliver" onclick="updateStatus('' + (o.orderId||o.objectId) + '','delivered')">✅ Mark Delivered</button>' : '') +
+        (o.phone ? '<a href="tel:' + o.phone + '" class="roc-btn call">📞 Call Customer</a>' : '') +
+        (o.location ? '<a href="https://maps.google.com/?q=' + o.location.lat + ',' + o.location.lng + '" target="_blank" class="roc-btn call">📍 Navigate</a>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+window.updateStatus = async function(orderId, status) {
+  try {
+    await TP.b4aUpdateOrderStatus(orderId, status);
+    TP.showToast('Status → ' + status + ' ✅');
+    pollOrders();
+  } catch(e) { TP.showToast('Update failed: ' + e.message, 'error'); }
+};
+
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

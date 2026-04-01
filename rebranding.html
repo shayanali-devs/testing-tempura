@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Rebranding Tool — Tempura Potato</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<style>
+body{cursor:auto!important;}#tp-cur{display:none!important;}
+.rb-page{max-width:1100px;margin:0 auto;padding:100px 24px 80px;}
+.rb-hero{text-align:center;margin-bottom:52px;}
+.rb-hero h1{font-family:var(--font);font-size:clamp(40px,7vw,76px);color:var(--white);letter-spacing:2px;}
+.rb-hero h1 span{color:var(--yellow);}
+.rb-hero p{font-size:16px;color:var(--gray);margin-top:12px;}
+
+/* PREVIEW */
+.rb-preview{background:var(--black3);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);overflow:hidden;margin-bottom:32px;}
+.rb-preview-bar{background:var(--black4);padding:12px 18px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);}
+.rb-dot{width:10px;height:10px;border-radius:50%;}
+.rb-preview-frame{width:100%;height:320px;border:none;}
+.rb-preview-label{padding:10px 18px;font-size:12px;color:var(--gray);border-top:1px solid rgba(255,255,255,.06);}
+
+/* TOOLS GRID */
+.rb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-bottom:24px;}
+.rb-card{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);padding:24px;}
+.rb-card h3{font-family:var(--font);font-size:18px;color:var(--white);letter-spacing:1px;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:10px;}
+.fr{margin-bottom:14px;}
+.fr label{display:block;font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.fi{width:100%;background:var(--black4);border:1px solid rgba(255,255,255,.1);color:var(--white);padding:10px 13px;border-radius:8px;font-size:14px;font-family:Barlow,sans-serif;outline:none;transition:border-color .3s;}
+.fi:focus{border-color:var(--yellow);}
+.fi::placeholder{color:var(--gray2);}
+select.fi{appearance:none;}
+.cr{display:flex;gap:8px;align-items:center;}
+.cr input[type=color]{width:44px;height:38px;border-radius:6px;border:none;cursor:pointer;padding:2px;}
+.sbtn{background:var(--yellow);color:var(--black);border:none;padding:11px 24px;border-radius:25px;font-weight:700;font-size:14px;cursor:pointer;transition:var(--tr);}
+.sbtn:hover{background:var(--yellow-d);transform:scale(1.04);}
+
+/* LIVE PREVIEW BOX */
+.live-preview{background:var(--black4);border-radius:12px;padding:20px;margin-top:16px;}
+.lp-navbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:10px;}
+.lp-logo{font-size:20px;}
+.lp-brand{font-family:var(--font);font-size:16px;letter-spacing:2px;}
+.lp-hero{border-radius:10px;padding:24px;margin-bottom:10px;text-align:center;}
+.lp-h-title{font-family:var(--font);font-size:28px;letter-spacing:1px;margin-bottom:6px;}
+.lp-h-btn{display:inline-block;padding:10px 22px;border-radius:25px;font-weight:700;font-size:13px;margin-top:8px;}
+.lp-card{border-radius:10px;padding:14px;display:inline-block;width:120px;text-align:center;margin:4px;}
+.lp-card-title{font-size:12px;font-weight:700;margin-top:6px;}
+.lp-price{font-family:var(--font);font-size:18px;margin-top:2px;}
+
+/* FONT PREVIEW */
+.font-preview{padding:16px;background:var(--black4);border-radius:10px;margin-top:12px;text-align:center;}
+.fp-big{font-size:36px;letter-spacing:2px;color:var(--white);}
+.fp-sub{font-size:14px;color:var(--gray);margin-top:4px;}
+
+/* EXPORT */
+.export-card{background:var(--black3);border:1px solid rgba(245,200,66,.2);border-radius:var(--radius);padding:28px;text-align:center;margin-top:24px;}
+.export-card h3{font-family:var(--font);font-size:22px;color:var(--white);margin-bottom:10px;}
+.export-card p{font-size:14px;color:var(--gray);margin-bottom:18px;}
+.export-code{background:var(--black4);border-radius:8px;padding:16px;font-family:monospace;font-size:12px;color:#4CAF50;text-align:left;max-height:200px;overflow-y:auto;margin-bottom:16px;word-break:break-all;}
+</style>
+</head>
+<body>
+<nav class="navbar scrolled">
+  <div class="nav-logo" onclick="location.href='admin.html'" style="cursor:pointer">
+    <div class="nav-logo-icon">🥔</div>
+    <div class="nav-brand-text"><span class="nav-brand-name">TEMPURA</span><span class="nav-brand-sub">POTATO</span></div>
+  </div>
+  <div class="nav-links"><a href="admin.html">← Admin</a><a href="index.html" target="_blank">View Site ↗</a></div>
+</nav>
+
+<div class="rb-page">
+  <div class="rb-hero">
+    <div class="sh-tag">DEVELOPER TOOL</div>
+    <h1>Full <span>Rebranding</span> Tool</h1>
+    <p>Change every visual element of the website in real time. Save and apply to all pages instantly.</p>
+  </div>
+
+  <!-- LIVE PREVIEW -->
+  <div class="rb-preview">
+    <div class="rb-preview-bar">
+      <div class="rb-dot" style="background:#ff5f57"></div>
+      <div class="rb-dot" style="background:#febc2e"></div>
+      <div class="rb-dot" style="background:#28c840"></div>
+      <span style="font-size:13px;color:var(--gray);margin-left:8px">Live Preview — Updates as you type</span>
+    </div>
+    <div style="padding:20px;" id="live-preview-container">
+      <!-- Injected by JS -->
+    </div>
+    <div class="rb-preview-label">⚡ Preview updates live. Click "Apply & Save" to push changes to the website.</div>
+  </div>
+
+  <!-- TOOLS -->
+  <div class="rb-grid">
+
+    <!-- COLORS -->
+    <div class="rb-card">
+      <h3>🎨 Colors</h3>
+      <div class="fr"><label>Primary Accent Color</label>
+        <div class="cr">
+          <input type="color" id="c-accent" value="#f5c842" oninput="syncHex('c-accent','c-accent-hex');livePreview()"/>
+          <input type="text" class="fi" id="c-accent-hex" value="#f5c842" oninput="syncColor('c-accent','c-accent-hex');livePreview()"/>
+        </div>
+      </div>
+      <div class="fr"><label>Background Color</label>
+        <div class="cr">
+          <input type="color" id="c-bg" value="#0a0a0a" oninput="syncHex('c-bg','c-bg-hex');livePreview()"/>
+          <input type="text" class="fi" id="c-bg-hex" value="#0a0a0a" oninput="syncColor('c-bg','c-bg-hex');livePreview()"/>
+        </div>
+      </div>
+      <div class="fr"><label>Card Background</label>
+        <div class="cr">
+          <input type="color" id="c-card" value="#1a1a1a" oninput="syncHex('c-card','c-card-hex');livePreview()"/>
+          <input type="text" class="fi" id="c-card-hex" value="#1a1a1a"/>
+        </div>
+      </div>
+      <button class="sbtn" onclick="applyColors()">Apply Colors</button>
+    </div>
+
+    <!-- TYPOGRAPHY -->
+    <div class="rb-card">
+      <h3>✏️ Typography</h3>
+      <div class="fr"><label>Display / Heading Font</label>
+        <select class="fi" id="f-display" onchange="livePreview()">
+          <option value="'Bebas Neue',cursive">Bebas Neue</option>
+          <option value="'Oswald',sans-serif">Oswald</option>
+          <option value="'Barlow Condensed',sans-serif">Barlow Condensed</option>
+          <option value="'Anton',sans-serif">Anton</option>
+          <option value="'Righteous',cursive">Righteous</option>
+        </select>
+      </div>
+      <div class="fr"><label>Body Font</label>
+        <select class="fi" id="f-body" onchange="livePreview()">
+          <option value="'Barlow',sans-serif">Barlow</option>
+          <option value="'Nunito',sans-serif">Nunito</option>
+          <option value="'Poppins',sans-serif">Poppins</option>
+          <option value="'Lato',sans-serif">Lato</option>
+        </select>
+      </div>
+      <div class="font-preview" id="font-preview">
+        <div class="fp-big" id="fp-big" style="font-family:'Bebas Neue',cursive">TEMPURA POTATO</div>
+        <div class="fp-sub" id="fp-sub" style="font-family:'Barlow',sans-serif">Lahore's Finest Fast Food</div>
+      </div>
+      <button class="sbtn" style="margin-top:12px" onclick="applyFonts()">Apply Fonts</button>
+    </div>
+
+    <!-- BRAND IDENTITY -->
+    <div class="rb-card">
+      <h3>🏷️ Brand Identity</h3>
+      <div class="fr"><label>Restaurant Name</label><input class="fi" id="b-name" value="Tempura Potato" oninput="livePreview()"/></div>
+      <div class="fr"><label>Tagline</label><input class="fi" id="b-tag" value="Lahore's Finest" oninput="livePreview()"/></div>
+      <div class="fr"><label>Logo Emoji</label><input class="fi" id="b-logo" value="🥔" oninput="livePreview()"/></div>
+      <div class="fr"><label>Phone</label><input class="fi" id="b-phone" value="+92-3044888775"/></div>
+      <div class="fr"><label>Address</label><input class="fi" id="b-addr" value="Main Bazar Nishat Colony, Milad Chock, Lahore"/></div>
+      <button class="sbtn" onclick="applyBrand()">Apply Brand</button>
+    </div>
+
+    <!-- LAYOUT STYLE -->
+    <div class="rb-card">
+      <h3>📐 Layout & Style</h3>
+      <div class="fr"><label>Card Border Radius</label>
+        <select class="fi" id="s-radius" onchange="livePreview()">
+          <option value="16px">Rounded — 16px (default)</option>
+          <option value="24px">Extra Round — 24px</option>
+          <option value="8px">Slightly Round — 8px</option>
+          <option value="0px">Sharp — 0px</option>
+        </select>
+      </div>
+      <div class="fr"><label>Button Style</label>
+        <select class="fi" id="s-btn" onchange="livePreview()">
+          <option value="30px">Pill (default)</option>
+          <option value="8px">Rounded</option>
+          <option value="0px">Sharp</option>
+        </select>
+      </div>
+      <div class="fr"><label>Hero Layout</label>
+        <select class="fi" id="s-hero">
+          <option value="split">Split (content + image)</option>
+          <option value="center">Centered</option>
+          <option value="left">Left aligned</option>
+        </select>
+      </div>
+      <div class="fr"><label>Menu Card Hover Effect</label>
+        <select class="fi" id="s-hover">
+          <option value="tilt">3D Tilt</option>
+          <option value="lift">Lift Up</option>
+          <option value="glow">Glow</option>
+          <option value="scale">Scale</option>
+        </select>
+      </div>
+      <button class="sbtn" onclick="applyLayout()">Apply Layout</button>
+    </div>
+
+    <!-- HERO CONTENT -->
+    <div class="rb-card">
+      <h3>🦸 Hero Section</h3>
+      <div class="fr"><label>Hero Line 1</label><input class="fi" id="h-l1" value="TASTE THE" oninput="livePreview()"/></div>
+      <div class="fr"><label>Hero Line 2 (Accent Color)</label><input class="fi" id="h-l2" value="OBSESSION" oninput="livePreview()"/></div>
+      <div class="fr"><label>Hero Subtext</label><textarea class="fi" id="h-sub" oninput="livePreview()">Premium burgers. Legendary wraps. Deals that hit different.</textarea></div>
+      <div class="fr"><label>Hero CTA Button Text</label><input class="fi" id="h-cta" value="Explore Menu"/></div>
+      <button class="sbtn" onclick="applyHero()">Apply Hero</button>
+    </div>
+
+    <!-- ANNOUNCEMENT & SEO -->
+    <div class="rb-card">
+      <h3>📢 Announcement & SEO</h3>
+      <div class="fr"><label>Announcement Bar Text</label><input class="fi" id="ann-text" placeholder="Install app & get 20% OFF!"/></div>
+      <div class="fr"><label>Page Title</label><input class="fi" id="seo-title" value="Tempura Potato — Lahore's Finest"/></div>
+      <div class="fr"><label>Meta Description</label><textarea class="fi" id="seo-desc" style="height:60px">Lahore's finest burgers, wraps & deals.</textarea></div>
+      <div class="fr"><label>Keywords</label><input class="fi" id="seo-keys" value="burger, shawarma, lahore"/></div>
+      <button class="sbtn" onclick="applyAnnSEO()">Apply</button>
+    </div>
+
+    <!-- IMAGES -->
+    <div class="rb-card">
+      <h3>🖼️ Images (ImgBB Upload)</h3>
+      <div class="fr"><label>Hero Background Image</label>
+        <div style="border:2px dashed rgba(245,200,66,.3);border-radius:10px;padding:16px;text-align:center;cursor:pointer;margin-bottom:8px" onclick="document.getElementById('hero-img-f').click()">
+          📷 Upload Hero Image
+          <input type="file" id="hero-img-f" accept="image/*" style="display:none" onchange="uploadImg(this,'hero-img-url','hero-img-prev','hero-img-prog')"/>
+          <img id="hero-img-prev" style="width:100%;height:100px;object-fit:cover;border-radius:6px;margin-top:8px;display:none;"/>
+          <div id="hero-img-prog" style="font-size:12px;color:var(--yellow);margin-top:6px;display:none"></div>
+        </div>
+        <input class="fi" id="hero-img-url" placeholder="Or paste image URL"/>
+      </div>
+      <div class="fr"><label>Logo / Icon Image</label>
+        <div style="border:2px dashed rgba(245,200,66,.3);border-radius:10px;padding:14px;text-align:center;cursor:pointer" onclick="document.getElementById('logo-img-f').click()">
+          📷 Upload Logo
+          <input type="file" id="logo-img-f" accept="image/*" style="display:none" onchange="uploadImg(this,'logo-img-url','logo-img-prev','logo-img-prog')"/>
+          <img id="logo-img-prev" style="width:60px;height:60px;object-fit:contain;border-radius:6px;margin-top:8px;display:none;"/>
+          <div id="logo-img-prog" style="font-size:12px;color:var(--yellow);margin-top:6px;display:none"></div>
+        </div>
+        <input class="fi" id="logo-img-url" placeholder="Or paste logo URL" style="margin-top:8px"/>
+      </div>
+      <button class="sbtn" onclick="applyImages()">Apply Images</button>
+    </div>
+
+    <!-- CUSTOM CSS -->
+    <div class="rb-card">
+      <h3>💻 Custom CSS</h3>
+      <p style="font-size:13px;color:var(--gray);margin-bottom:12px">Advanced: inject custom CSS directly into the website.</p>
+      <div class="fr"><label>Custom CSS Code</label><textarea class="fi" id="custom-css" rows="8" placeholder="/* Example: */&#10;.hero-title { letter-spacing: 5px; }&#10;.btn-p { border-radius: 0; }" style="font-family:monospace;font-size:12px;"></textarea></div>
+      <button class="sbtn" onclick="applyCustomCSS()">Inject CSS</button>
+    </div>
+
+  </div>
+
+  <!-- EXPORT -->
+  <div class="export-card">
+    <h3>📦 Export & Save Configuration</h3>
+    <p>Export your current branding config as JSON to save or share with another instance.</p>
+    <div class="export-code" id="export-code">// Click "Generate Export" to see your config</div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="sbtn" onclick="generateExport()">Generate Export</button>
+      <button class="sbtn" onclick="copyExport()" style="background:var(--black4);color:var(--yellow);border:1px solid rgba(245,200,66,.3)">Copy JSON</button>
+      <button class="sbtn" onclick="saveToB4A()" style="background:var(--black4);color:var(--yellow);border:1px solid rgba(245,200,66,.3)">Save to Back4App</button>
+      <a href="index.html" target="_blank" class="sbtn" style="background:var(--black4);color:var(--white);text-decoration:none">Preview Site ↗</a>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/parse/dist/parse.min.js"></script>
+<script src="main.js"></script>
+<script>
+const IMGBB_KEY = 'ab7a51eaed988c67582fc8bcc877df5a';
+
+function syncHex(colorId, hexId) { document.getElementById(hexId).value = document.getElementById(colorId).value; }
+function syncColor(colorId, hexId) { const v=document.getElementById(hexId).value; if(/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById(colorId).value=v; }
+
+function livePreview() {
+  const accent  = document.getElementById('c-accent').value  || '#f5c842';
+  const bg      = document.getElementById('c-bg').value      || '#0a0a0a';
+  const name    = document.getElementById('b-name').value    || 'Tempura Potato';
+  const tagline = document.getElementById('b-tag').value     || "Lahore's Finest";
+  const logo    = document.getElementById('b-logo').value    || '🥔';
+  const h1      = document.getElementById('h-l1').value      || 'TASTE THE';
+  const h2      = document.getElementById('h-l2').value      || 'OBSESSION';
+  const radius  = document.getElementById('s-radius').value  || '16px';
+  const btnR    = document.getElementById('s-btn').value     || '30px';
+  const font    = document.getElementById('f-display').value || "'Bebas Neue',cursive";
+  const body    = document.getElementById('f-body').value    || "'Barlow',sans-serif";
+
+  // Update font preview
+  document.getElementById('fp-big').style.fontFamily = font;
+  document.getElementById('fp-sub').style.fontFamily = body;
+  document.getElementById('fp-big').textContent = name.toUpperCase();
+
+  const container = document.getElementById('live-preview-container');
+  container.style.background = bg;
+  container.innerHTML = `
+    <div style="background:${bg};font-family:${body};border-radius:12px;overflow:hidden;padding:20px;">
+      <!-- Navbar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:24px">${logo}</span>
+          <div>
+            <div style="font-family:${font};font-size:18px;color:${accent};letter-spacing:2px;">${name.toUpperCase()}</div>
+            <div style="font-size:11px;color:#888;">${tagline}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span style="font-size:13px;color:#888;">Menu</span>
+          <span style="font-size:13px;color:#888;">Deals</span>
+          <span style="background:${accent};color:#000;padding:8px 18px;border-radius:${btnR};font-size:13px;font-weight:700;">Order Now</span>
+        </div>
+      </div>
+      <!-- Hero -->
+      <div style="background:linear-gradient(135deg,${bg},${accent}11);border-radius:${radius};padding:24px;margin-bottom:16px;">
+        <div style="font-family:${font};font-size:28px;color:#fff;letter-spacing:1px;">${h1}</div>
+        <div style="font-family:${font};font-size:36px;color:${accent};letter-spacing:1px;text-shadow:0 0 40px ${accent}66;">${h2}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.6);margin:8px 0 16px;">${document.getElementById('h-sub').value}</div>
+        <span style="background:${accent};color:#000;padding:10px 22px;border-radius:${btnR};font-size:13px;font-weight:800;">Explore Menu</span>
+      </div>
+      <!-- Sample Cards -->
+      <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;">
+        ${['Zinger Burger','Loaded Fries','Mala Boti Wrap'].map((n,i)=>`
+          <div style="flex-shrink:0;width:140px;background:${accent}11;border:1px solid ${accent}33;border-radius:${radius};overflow:hidden;">
+            <div style="height:80px;background:${accent}22;display:flex;align-items:center;justify-content:center;font-size:28px;">${['🍔','🍟','🌯'][i]}</div>
+            <div style="padding:10px;">
+              <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;">${n}</div>
+              <div style="font-family:${font};font-size:17px;color:${accent};">Rs. ${[350,180,450][i]}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function applyColors() {
+  const accent = document.getElementById('c-accent').value;
+  const bg     = document.getElementById('c-bg').value;
+  document.documentElement.style.setProperty('--yellow', accent);
+  document.documentElement.style.setProperty('--black', bg);
+  saveLocalSettings({ accentColor:accent, bgColor:bg });
+  TP.showToast('Colors applied ✅');
+}
+
+function applyFonts() {
+  const font = document.getElementById('f-display').value;
+  document.documentElement.style.setProperty('--font', font);
+  saveLocalSettings({ fontFamily: font });
+  TP.showToast('Fonts applied ✅');
+}
+
+function applyBrand() {
+  const s = { restaurantName:document.getElementById('b-name').value, tagline:document.getElementById('b-tag').value, logoEmoji:document.getElementById('b-logo').value, phone:document.getElementById('b-phone').value, address:document.getElementById('b-addr').value };
+  saveLocalSettings(s);
+  TP.applySettings && TP.applySettings(s);
+  TP.showToast('Brand applied ✅');
+}
+
+function applyLayout() {
+  const r=document.getElementById('s-radius').value;
+  const b=document.getElementById('s-btn').value;
+  document.documentElement.style.setProperty('--radius', r);
+  saveLocalSettings({ cardRadius:r, btnRadius:b });
+  TP.showToast('Layout applied ✅');
+}
+
+function applyHero() {
+  saveLocalSettings({ heroLine1:document.getElementById('h-l1').value, heroLine2:document.getElementById('h-l2').value, heroSub:document.getElementById('h-sub').value, heroCta:document.getElementById('h-cta').value });
+  TP.showToast('Hero content applied ✅');
+}
+
+function applyAnnSEO() {
+  saveLocalSettings({ announcementBar:document.getElementById('ann-text').value, seoTitle:document.getElementById('seo-title').value, seoDesc:document.getElementById('seo-desc').value, seoKeys:document.getElementById('seo-keys').value });
+  TP.showToast('Announcement & SEO saved ✅');
+}
+
+async function uploadImg(input, urlId, prevId, progId) {
+  const file=input.files[0]; if(!file) return;
+  const prog=document.getElementById(progId); prog.style.display='block'; prog.textContent='Uploading to ImgBB...';
+  try {
+    const fd=new FormData(); fd.append('image',file);
+    const res=await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`,{method:'POST',body:fd});
+    const data=await res.json();
+    if(data.success){
+      document.getElementById(urlId).value=data.data.url;
+      const prev=document.getElementById(prevId); prev.src=data.data.url; prev.style.display='block';
+      prog.textContent='✅ Uploaded: '+data.data.url.substring(0,40)+'...';
+    }
+  } catch(e){ prog.textContent='Upload failed. Paste URL manually.'; }
+}
+
+function applyImages() {
+  const heroUrl=document.getElementById('hero-img-url').value;
+  if(heroUrl){ saveLocalSettings({heroBg:heroUrl}); document.querySelector('.hero')?.style && (document.querySelector('.hero').style.backgroundImage=`url(${heroUrl})`); }
+  TP.showToast('Images applied ✅');
+}
+
+function applyCustomCSS() {
+  const css=document.getElementById('custom-css').value;
+  let s=document.getElementById('rb-custom-style');
+  if(!s){s=document.createElement('style');s.id='rb-custom-style';document.head.appendChild(s);}
+  s.textContent=css;
+  saveLocalSettings({customCSS:css});
+  TP.showToast('Custom CSS injected ✅');
+}
+
+function saveLocalSettings(newData) {
+  const existing=JSON.parse(localStorage.getItem('tp_settings')||'{}');
+  const merged={...existing,...newData};
+  localStorage.setItem('tp_settings',JSON.stringify(merged));
+}
+
+function generateExport() {
+  const config={accentColor:document.getElementById('c-accent').value,bgColor:document.getElementById('c-bg').value,fontFamily:document.getElementById('f-display').value,cardRadius:document.getElementById('s-radius').value,restaurantName:document.getElementById('b-name').value,tagline:document.getElementById('b-tag').value,logoEmoji:document.getElementById('b-logo').value,phone:document.getElementById('b-phone').value,address:document.getElementById('b-addr').value,heroLine1:document.getElementById('h-l1').value,heroLine2:document.getElementById('h-l2').value,heroSub:document.getElementById('h-sub').value,announcementBar:document.getElementById('ann-text').value,seoTitle:document.getElementById('seo-title').value,generatedAt:new Date().toISOString()};
+  document.getElementById('export-code').textContent=JSON.stringify(config,null,2);
+  TP.showToast('Config generated ✅');
+}
+
+function copyExport() {
+  const code=document.getElementById('export-code').textContent;
+  navigator.clipboard.writeText(code).then(()=>TP.showToast('Copied to clipboard ✅')).catch(()=>TP.showToast('Copy failed','error'));
+}
+
+async function saveToB4A() {
+  generateExport();
+  const config=JSON.parse(document.getElementById('export-code').textContent||'{}');
+  if(typeof Parse!=='undefined') await TP.b4aSave('Settings',config);
+  localStorage.setItem('tp_settings',JSON.stringify(config));
+  TP.showToast('Saved to Back4App ✅');
+}
+
+// Init preview on load
+document.addEventListener('DOMContentLoaded', livePreview);
+</script>
+</body>
+</html>

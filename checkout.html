@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#0a0a0a"/>
+<title>Checkout — Tempura Potato</title>
+<link rel="manifest" href="manifest.json"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<style>
+body{cursor:auto!important;}#tp-cur{display:none!important;}
+.co-page{background:var(--black);min-height:100vh;}
+.co-hero{background:var(--black2);border-bottom:1px solid rgba(255,255,255,.06);padding:100px 24px 36px;text-align:center;}
+.co-hero h1{font-family:var(--font);font-size:clamp(38px,7vw,76px);color:var(--white);}
+.co-hero h1 span{color:var(--yellow);}
+.co-wrap{max-width:1080px;margin:0 auto;padding:28px 22px 80px;display:grid;grid-template-columns:1fr 390px;gap:26px;}
+@media(max-width:880px){.co-wrap{grid-template-columns:1fr;}}
+.co-panel{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);padding:26px;margin-bottom:18px;}
+.co-panel h2{font-family:var(--font);font-size:22px;color:var(--white);letter-spacing:1px;margin-bottom:18px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:11px;}
+.fg{margin-bottom:15px;}
+.fl{display:block;font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.fi{width:100%;background:var(--black4);border:1px solid rgba(255,255,255,.1);color:var(--white);padding:12px 14px;border-radius:var(--radius-s);font-size:15px;font-family:Barlow,sans-serif;outline:none;transition:border-color .3s;}
+.fi:focus{border-color:var(--yellow);}
+.fi::placeholder{color:var(--gray2);}
+textarea.fi{resize:vertical;min-height:74px;}
+.del-toggle{display:flex;gap:10px;margin-bottom:6px;}
+.del-opt{flex:1;padding:12px;background:var(--black4);border:2px solid rgba(255,255,255,.1);border-radius:var(--radius-s);text-align:center;cursor:pointer;font-weight:700;font-size:15px;color:var(--white);transition:var(--tr);}
+.del-opt.active{border-color:var(--yellow);color:var(--yellow);background:rgba(245,200,66,.06);}
+.loc-btn{width:100%;margin-top:8px;padding:11px;background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.24);color:var(--yellow);border-radius:var(--radius-s);font-weight:700;font-size:14px;cursor:pointer;transition:var(--tr);}
+.loc-btn:hover{background:rgba(245,200,66,.15);}
+.co-summary{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);padding:26px;position:sticky;top:84px;}
+.co-summary h2{font-family:var(--font);font-size:22px;color:var(--white);letter-spacing:1px;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:11px;}
+.cart-list{max-height:320px;overflow-y:auto;margin-bottom:14px;}
+.ci{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.ci-img{width:42px;height:42px;border-radius:7px;object-fit:cover;flex-shrink:0;}
+.ci-info{flex:1;min-width:0;}
+.ci-name{font-size:13px;font-weight:600;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ci-qrow{display:flex;align-items:center;gap:6px;margin-top:3px;}
+.ci-qbtn{width:20px;height:20px;background:var(--black5);border:1px solid rgba(255,255,255,.1);color:var(--white);border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--tr);}
+.ci-qbtn:hover{background:var(--yellow);color:var(--black);}
+.ci-qnum{font-size:12px;color:var(--gray);min-width:14px;text-align:center;}
+.ci-price{font-family:var(--font);font-size:18px;color:var(--yellow);white-space:nowrap;}
+.ci-del{background:none;border:none;color:var(--gray2);cursor:pointer;font-size:15px;padding:3px;flex-shrink:0;}
+.ci-del:hover{color:#ff4444;}
+.empty-cart{text-align:center;padding:30px 16px;}
+.ec-icon{font-size:46px;margin-bottom:10px;}
+.totrow{display:flex;justify-content:space-between;font-size:13px;color:var(--gray);margin-bottom:7px;}
+.totrow.grand{font-size:16px;font-weight:700;color:var(--white);border-top:1px solid rgba(255,255,255,.1);padding-top:10px;margin-top:6px;}
+.totrow.grand span:last-child{color:var(--yellow);font-family:var(--font);font-size:22px;}
+.totrow.disc{color:#4CAF50;}
+.promo-row{display:flex;gap:8px;margin-bottom:14px;}
+.promo-row input{flex:1;font-size:13px;padding:8px 11px;}
+.pa-btn{padding:0 16px;background:var(--yellow);color:var(--black);border:none;border-radius:var(--radius-s);font-weight:700;cursor:pointer;font-size:13px;}
+.co-btns{display:flex;flex-direction:column;gap:10px;margin-top:16px;}
+.btn-wa{display:flex;align-items:center;justify-content:center;gap:10px;background:#25D366;color:#fff;padding:13px;border-radius:28px;font-weight:700;font-size:15px;border:none;cursor:pointer;width:100%;transition:var(--tr);}
+.btn-wa:hover{background:#128C7E;transform:translateY(-2px);}
+.auth-box{background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.17);border-radius:var(--radius-s);padding:15px;margin-bottom:16px;text-align:center;}
+.auth-box p{font-size:13px;color:var(--gray);margin-bottom:10px;}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#333;padding:10px 16px;border-radius:24px;font-weight:700;font-size:14px;border:none;cursor:pointer;width:100%;transition:var(--tr);}
+.btn-google:hover{transform:scale(1.02);}
+.user-bar{background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.17);border-radius:var(--radius-s);padding:10px 13px;display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;}
+.user-bar-name{font-size:13px;color:var(--white);font-weight:600;}
+.btn-so{background:none;border:none;color:var(--gray);font-size:11px;cursor:pointer;text-decoration:underline;}
+.free-note{font-size:12px;color:#4CAF50;text-align:center;margin-top:5px;display:none;}
+.placing-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.placing-overlay.show{display:flex;}
+.placing-spinner{width:48px;height:48px;border:4px solid rgba(245,200,66,.2);border-top-color:var(--yellow);border-radius:50%;animation:spin2 .8s linear infinite;}
+@keyframes spin2{to{transform:rotate(360deg);}}
+.placing-text{font-family:var(--font);font-size:24px;color:var(--yellow);letter-spacing:1px;}
+</style>
+</head>
+<body>
+
+<!-- Placing order overlay -->
+<div class="placing-overlay" id="placing-overlay">
+  <div class="placing-spinner"></div>
+  <div class="placing-text">Placing Your Order...</div>
+</div>
+
+<nav class="navbar scrolled" id="navbar">
+  <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">
+    <div class="nav-logo-icon tp-logo">🥔</div>
+    <div class="nav-brand-text"><span class="nav-brand-name tp-brand">TEMPURA</span><span class="nav-brand-sub">POTATO</span></div>
+  </div>
+  <div class="nav-links"><a href="index.html#menu">Menu</a><a href="index.html#deals">Deals</a></div>
+  <div class="nav-ham" id="nav-ham"><span></span><span></span><span></span></div>
+</nav>
+<div class="mobile-menu" id="mobile-menu">
+  <a href="index.html" onclick="closeMenu()">Home</a>
+  <a href="index.html#menu" onclick="closeMenu()">Menu</a>
+</div>
+
+<div class="co-page">
+  <div class="co-hero">
+    <div class="sh-tag">YOUR ORDER</div>
+    <h1>Check<span>out</span></h1>
+  </div>
+
+  <div class="co-wrap">
+    <!-- LEFT: FORM -->
+    <div>
+      <div id="auth-section"></div>
+
+      <div class="co-panel">
+        <h2>Delivery Type</h2>
+        <div class="del-toggle">
+          <div class="del-opt active" id="opt-del" onclick="setDel('delivery')">🛵 Delivery</div>
+          <div class="del-opt"        id="opt-pick" onclick="setDel('pickup')">🏃 Pickup</div>
+        </div>
+      </div>
+
+      <div class="co-panel">
+        <h2>Your Details</h2>
+        <div class="fg"><label class="fl">Full Name *</label><input class="fi" id="inp-name" placeholder="Your name"/></div>
+        <div class="fg"><label class="fl">Phone Number *</label><input class="fi" id="inp-phone" type="tel" placeholder="+92 3xx xxxxxxx"/></div>
+        <div id="del-fields">
+          <div class="fg"><label class="fl">Delivery Address *</label><textarea class="fi" id="inp-addr" placeholder="Full address, area, landmark..."></textarea></div>
+          <div class="fg">
+            <label class="fl">Live Location (optional)</label>
+            <button class="loc-btn" onclick="getLocation()">📍 Share My Live Location</button>
+            <p id="loc-status" style="font-size:12px;color:var(--gray);margin-top:7px"></p>
+          </div>
+        </div>
+        <div class="fg"><label class="fl">Special Instructions</label><textarea class="fi" id="inp-notes" placeholder="Extra spicy? No onions? Tell us!"></textarea></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SUMMARY -->
+    <div class="co-summary">
+      <h2>Order Summary</h2>
+      <div id="user-bar-slot"></div>
+      <div class="cart-list" id="cart-list"></div>
+      <div class="promo-row">
+        <input class="fi" id="promo-inp" placeholder="Promo code (APP20, FIRSTORDER)" style="font-size:13px;padding:8px 10px"/>
+        <button class="pa-btn" onclick="applyPromo()">Apply</button>
+      </div>
+      <div>
+        <div class="totrow"><span>Subtotal</span><span id="t-sub">Rs. 0</span></div>
+        <div class="totrow disc" id="disc-row" style="display:none"><span>Discount</span><span id="t-disc">-Rs. 0</span></div>
+        <div class="totrow"><span>Delivery Fee</span><span id="t-fee">Rs. 60</span></div>
+        <div class="totrow grand"><span>Total</span><span id="t-total">Rs. 0</span></div>
+      </div>
+      <div class="free-note" id="free-note"></div>
+      <div class="co-btns">
+        <button class="btn-p" style="width:100%;font-size:15px;padding:14px" onclick="placeOrder()">Place Order 🎉</button>
+        <button class="btn-wa" onclick="orderWA()">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          Order on WhatsApp
+        </button>
+      </div>
+      <p style="text-align:center;font-size:11px;color:var(--gray2);margin-top:12px">Cash on delivery · No hidden charges</p>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footer-bottom" style="justify-content:center"><span>© 2026 Tempura Potato · Milad Chock, Lahore</span></div>
+</footer>
+
+<!-- Parse SDK FIRST, then main.js -->
+<script src="https://unpkg.com/parse/dist/parse.min.js"></script>
+<script src="main.js"></script>
+<script>
+// ============================================================
+//  CHECKOUT PAGE — FULLY FIXED
+//  FIX 1: Cart reads from localStorage — never reinitializes
+//  FIX 2: Order saved to Back4App with correct orderId field
+//  FIX 3: Cart cleared ONLY after successful order save
+//  FIX 4: WhatsApp order ALSO saves to Back4App
+// ============================================================
+
+const WA_NUM        = '923044888775';
+const BASE_DEL_FEE  = 60;
+const FREE_DEL_ABOVE = 1200;
+
+let delType     = 'delivery';
+let discount    = 0;
+let userLoc     = null;
+let currentUser = null;
+
+// NAV
+document.getElementById('nav-ham').addEventListener('click', () => {
+  document.getElementById('mobile-menu').classList.toggle('open');
+  document.body.classList.toggle('no-scroll');
+});
+
+// AUTH — simplified (no Google OAuth needed for Back4App in this build)
+function renderAuth() {
+  const section = document.getElementById('auth-section');
+  const ubSlot  = document.getElementById('user-bar-slot');
+  if (currentUser) {
+    section.innerHTML = '';
+    ubSlot.innerHTML  = `<div class="user-bar"><span class="user-bar-name">👤 ${currentUser.name||'Customer'}</span><button class="btn-so" onclick="doSO()">Sign out</button></div>`;
+    const ni = document.getElementById('inp-name');
+    if (ni && !ni.value && currentUser.name) ni.value = currentUser.name;
+  } else {
+    ubSlot.innerHTML = '';
+    section.innerHTML = `<div class="co-panel"><div class="auth-box"><p>🎉 Sign in to get <strong>20% OFF</strong> your first order!</p><button class="btn-google" onclick="doSI()"><img src="https://developers.google.com/identity/images/g-logo.png" width="18" alt="G"/> Sign in with Google</button></div></div>`;
+  }
+}
+
+function doSI() {
+  // Simple demo sign-in — in production connect Google OAuth to Back4App
+  currentUser = { name: 'Customer', uid: 'demo_' + Date.now() };
+  discount = 0.20;
+  TP.showToast('Signed in! 20% discount applied 🎉');
+  renderAuth(); renderCart();
+}
+
+function doSO() {
+  currentUser = null; discount = 0;
+  renderAuth(); renderCart();
+}
+
+// DELIVERY TOGGLE
+window.setDel = function(t) {
+  delType = t;
+  document.getElementById('opt-del').classList.toggle('active',  t === 'delivery');
+  document.getElementById('opt-pick').classList.toggle('active', t === 'pickup');
+  document.getElementById('del-fields').style.display = t === 'delivery' ? '' : 'none';
+  renderCart();
+};
+
+// ─── CART RENDER ───────────────────────────────────────────
+// CRITICAL FIX: Always reads fresh from localStorage via TP.getCart()
+// Never caches cart in a variable at page load
+function renderCart() {
+  const cart = TP.getCart();  // Fresh read every time
+  const list = document.getElementById('cart-list');
+
+  if (!cart.length) {
+    list.innerHTML = `<div class="empty-cart"><div class="ec-icon">🛒</div><p style="color:var(--gray);margin-bottom:14px">Your cart is empty</p><a href="index.html#menu" class="btn-p" style="display:inline-block;font-size:14px;padding:10px 22px">Browse Menu</a></div>`;
+    document.getElementById('t-sub').textContent   = 'Rs. 0';
+    document.getElementById('t-total').textContent = 'Rs. 0';
+    document.getElementById('t-fee').textContent   = delType === 'delivery' ? 'Rs. ' + BASE_DEL_FEE : 'Free';
+    document.getElementById('disc-row').style.display = 'none';
+    document.getElementById('free-note').style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = cart.map(item => `
+    <div class="ci">
+      <img class="ci-img" src="${item.img || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100&q=60'}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100&q=60'"/>
+      <div class="ci-info">
+        <div class="ci-name">${item.name}</div>
+        <div class="ci-qrow">
+          <button class="ci-qbtn" onclick="TP.updateCartQty('${item.id}',${item.qty - 1});renderCart()">−</button>
+          <span class="ci-qnum">${item.qty}</span>
+          <button class="ci-qbtn" onclick="TP.updateCartQty('${item.id}',${item.qty + 1});renderCart()">+</button>
+        </div>
+      </div>
+      <div class="ci-price">Rs.${item.price * item.qty}</div>
+      <button class="ci-del" onclick="TP.removeFromCart('${item.id}');renderCart()">✕</button>
+    </div>`).join('');
+
+  calcTotals(cart);
+}
+
+function calcTotals(cart) {
+  const sub  = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const disc = Math.round(sub * discount);
+  const fee  = delType === 'delivery' ? (sub >= FREE_DEL_ABOVE ? 0 : BASE_DEL_FEE) : 0;
+  const total = sub - disc + fee;
+
+  document.getElementById('t-sub').textContent   = 'Rs. ' + sub;
+  document.getElementById('t-fee').textContent   = fee ? 'Rs. ' + fee : 'Free 🎉';
+  document.getElementById('t-total').textContent = 'Rs. ' + total;
+
+  const dr = document.getElementById('disc-row');
+  if (disc) { dr.style.display = ''; document.getElementById('t-disc').textContent = '-Rs. ' + disc; }
+  else dr.style.display = 'none';
+
+  const fn = document.getElementById('free-note');
+  if (delType === 'delivery' && sub < FREE_DEL_ABOVE && sub > 0) {
+    fn.style.display = 'block';
+    fn.textContent   = `Add Rs. ${FREE_DEL_ABOVE - sub} more for FREE delivery!`;
+  } else fn.style.display = 'none';
+}
+
+// PROMO
+window.applyPromo = async function() {
+  const code   = document.getElementById('promo-inp').value.trim().toUpperCase();
+  const result = await TP.validatePromo(code);
+  if (!result)         { TP.showToast('Invalid promo code', 'error'); return; }
+  if (result.expired)  { TP.showToast(result.msg || 'Code expired', 'error'); return; }
+  discount = result.discount || 0;
+  TP.showToast('Discount applied: ' + (result.label || Math.round(discount * 100) + '% off') + ' 🎉');
+  renderCart();
+};
+
+// LOCATION
+window.getLocation = function() {
+  const s = document.getElementById('loc-status'); s.textContent = 'Getting location...';
+  navigator.geolocation.getCurrentPosition(
+    p => { userLoc = { lat:p.coords.latitude, lng:p.coords.longitude }; s.textContent = '📍 Location captured!'; s.style.color = 'var(--yellow)'; },
+    () => { s.textContent = 'Location denied. Enter address manually.'; s.style.color = 'var(--gray)'; }
+  );
+};
+
+// ─── VALIDATE FORM ─────────────────────────────────────────
+function validateForm() {
+  const cart = TP.getCart();
+  if (!cart.length) { TP.showToast('Your cart is empty!', 'error'); return false; }
+  const name  = document.getElementById('inp-name').value.trim();
+  const phone = document.getElementById('inp-phone').value.trim();
+  if (!name)  { TP.showToast('Please enter your name', 'error'); return false; }
+  if (!phone) { TP.showToast('Please enter your phone number', 'error'); return false; }
+  if (delType === 'delivery' && !document.getElementById('inp-addr').value.trim()) {
+    TP.showToast('Please enter your delivery address', 'error'); return false;
+  }
+  return true;
+}
+
+function buildOrderData(cart) {
+  const name  = document.getElementById('inp-name').value.trim();
+  const phone = document.getElementById('inp-phone').value.trim();
+  const addr  = document.getElementById('inp-addr')?.value.trim() || 'PICKUP';
+  const notes = document.getElementById('inp-notes').value.trim();
+  const sub   = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const disc  = Math.round(sub * discount);
+  const fee   = delType === 'delivery' ? (sub >= FREE_DEL_ABOVE ? 0 : BASE_DEL_FEE) : 0;
+  const orderId = Date.now().toString();
+
+  return {
+    orderId,                    // Our custom field — used to look up order in tracking
+    customerName: name,
+    phone,
+    customer:     { name, phone, uid: currentUser?.uid || null },
+    address:      delType === 'delivery' ? addr : 'PICKUP',
+    location:     userLoc || null,
+    items:        cart,
+    notes,
+    subtotal:     sub,
+    discountAmount: disc,
+    fee,
+    total:        sub - disc + fee,
+    deliveryType: delType,
+    status:       'pending',    // Always starts as pending — admin must accept
+    timestamp:    Date.now(),
+    via:          'web',
+  };
+}
+
+// ─── PLACE ORDER ───────────────────────────────────────────
+window.placeOrder = async function() {
+  if (!validateForm()) return;
+
+  const cart  = TP.getCart();
+  const order = buildOrderData(cart);
+
+  // Show placing overlay
+  document.getElementById('placing-overlay').classList.add('show');
+
+  // Wait for Parse to be ready
+  const ready = await TP.waitForParse(8000);
+  if (!ready) {
+    document.getElementById('placing-overlay').classList.remove('show');
+    TP.showToast('Server error. Please use WhatsApp order instead.', 'error');
+    return;
+  }
+
+  try {
+    const result = await TP.b4aSave('Orders', order);
+    if (!result) throw new Error('Save returned null');
+    console.log('[Checkout] Order saved:', result.id, 'orderId:', order.orderId);
+
+    // Clear cart ONLY after successful save
+    TP.clearCart();
+    document.getElementById('placing-overlay').classList.remove('show');
+
+    // Redirect to tracking with our orderId
+    location.href = 'tracking.html?order=' + order.orderId;
+  } catch(e) {
+    document.getElementById('placing-overlay').classList.remove('show');
+    console.error('[Checkout] Save error:', e.message);
+    TP.showToast('Could not place order. Try WhatsApp option.', 'error');
+  }
+};
+
+// ─── WHATSAPP ORDER ────────────────────────────────────────
+window.orderWA = function() {
+  if (!validateForm()) return;
+
+  const cart  = TP.getCart();
+  const order = buildOrderData(cart);
+
+  // Save to Back4App silently in background
+  TP.waitForParse(5000).then(ready => {
+    if (ready) TP.b4aSave('Orders', order).catch(() => {});
+  });
+
+  // Build WhatsApp message
+  const name  = document.getElementById('inp-name').value.trim();
+  const phone = document.getElementById('inp-phone').value.trim();
+  const addr  = document.getElementById('inp-addr')?.value.trim() || '';
+  const notes = document.getElementById('inp-notes').value.trim();
+
+  let msg = `🥔 *TEMPURA POTATO ORDER*\n\n`;
+  msg += `👤 *Name:* ${name}\n`;
+  msg += `📞 *Phone:* ${phone}\n`;
+  msg += `🚚 *Type:* ${delType === 'delivery' ? 'Delivery' : 'Pickup'}\n`;
+  if (delType === 'delivery') msg += `📍 *Address:* ${addr}\n`;
+  if (userLoc) msg += `🗺️ *Map:* https://maps.google.com/?q=${userLoc.lat},${userLoc.lng}\n`;
+  msg += `\n🛒 *Items:*\n`;
+  cart.forEach(i => { msg += `  • ${i.name} ×${i.qty} — Rs. ${i.price * i.qty}\n`; });
+  if (order.discountAmount) msg += `\n💸 *Discount:* -Rs. ${order.discountAmount}\n`;
+  msg += `\n💰 *Total: Rs. ${order.total}*`;
+  if (notes) msg += `\n📝 *Notes:* ${notes}`;
+  msg += `\n\n*Order ID: #${order.orderId.slice(-6)}*`;
+
+  window.open(`https://wa.me/${WA_NUM}?text=${encodeURIComponent(msg)}`, '_blank');
+};
+
+// ─── INIT ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderAuth();
+  renderCart();
+
+  // Scroll nav handler
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 10);
+  }, { passive:true });
+  document.getElementById('navbar').classList.add('scrolled');
+});
+</script>
+</body>
+</html>

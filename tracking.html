@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#0a0a0a"/>
+<title>Track Order — Tempura Potato</title>
+<link rel="manifest" href="manifest.json"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<style>
+body{cursor:auto!important;}#tp-cur{display:none!important;}
+.track-page{max-width:700px;margin:0 auto;padding:100px 22px 80px;}
+.order-id-bar{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-s);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;font-size:13px;}
+.order-id-bar strong{color:var(--yellow);}
+.eta-card{background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.2);border-radius:var(--radius);padding:20px 24px;margin-bottom:22px;display:flex;align-items:center;gap:18px;}
+.eta-icon{font-size:36px;flex-shrink:0;}
+.eta-lbl{font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;}
+.eta-val{font-family:var(--font);font-size:30px;color:var(--yellow);}
+.steps-card{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);padding:28px;margin-bottom:22px;}
+.steps-card h2{font-family:var(--font);font-size:22px;color:var(--white);letter-spacing:1px;margin-bottom:24px;}
+.steps{display:flex;flex-direction:column;}
+.step{display:flex;align-items:flex-start;gap:18px;position:relative;padding-bottom:26px;}
+.step:last-child{padding-bottom:0;}
+.step::before{content:'';position:absolute;left:18px;top:40px;bottom:0;width:2px;background:rgba(255,255,255,.07);}
+.step:last-child::before{display:none;}
+.step-icon{width:38px;height:38px;border-radius:50%;background:var(--black4);border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;position:relative;z-index:1;transition:all .5s ease;}
+.step.done .step-icon{background:rgba(245,200,66,.12);border-color:var(--yellow);}
+.step.active .step-icon{background:var(--yellow);border-color:var(--yellow);box-shadow:0 0 20px var(--yellow-g);animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 20px var(--yellow-g);}50%{box-shadow:0 0 40px rgba(245,200,66,.6);}}
+.step-info{flex:1;padding-top:6px;}
+.step-name{font-family:var(--font);font-size:20px;letter-spacing:1px;color:rgba(255,255,255,.25);transition:color .4s;}
+.step.done .step-name,.step.active .step-name{color:var(--white);}
+.step-desc{font-size:13px;color:var(--gray2);margin-top:2px;}
+.step.active .step-desc{color:var(--gray);}
+.step-time{font-size:12px;color:var(--yellow);margin-top:4px;display:none;}
+.step.done .step-time,.step.active .step-time{display:block;}
+
+.rider-card{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);padding:22px;margin-bottom:22px;display:none;}
+.rider-card.show{display:block;}
+.rider-card h2{font-family:var(--font);font-size:20px;color:var(--white);letter-spacing:1px;margin-bottom:16px;}
+.rider-inner{display:flex;align-items:center;gap:16px;}
+.rider-av{width:52px;height:52px;background:var(--yellow);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.rider-det{flex:1;}
+.rider-nm{font-weight:700;font-size:16px;color:var(--white);}
+.rider-veh{font-size:13px;color:var(--gray);margin-top:2px;}
+.rider-call{display:flex;align-items:center;gap:8px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);color:var(--yellow);padding:9px 16px;border-radius:25px;font-weight:700;font-size:13px;text-decoration:none;transition:var(--tr);white-space:nowrap;}
+.rider-call:hover{background:rgba(245,200,66,.2);}
+
+.map-card{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);overflow:hidden;margin-bottom:22px;display:none;}
+.map-card.show{display:block;}
+.map-card iframe{width:100%;height:230px;border:none;}
+.map-lbl{padding:10px 16px;font-size:12px;color:var(--gray);display:flex;align-items:center;gap:8px;}
+.live-dot{width:7px;height:7px;background:#4CAF50;border-radius:50%;animation:blink2 1s ease-in-out infinite;flex-shrink:0;}
+@keyframes blink2{0%,100%{opacity:1;}50%{opacity:.2;}}
+
+.items-card{background:var(--black3);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);padding:22px;}
+.items-card h2{font-family:var(--font);font-size:20px;color:var(--white);letter-spacing:1px;margin-bottom:14px;}
+.oi-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;}
+.oi-row:last-of-type{border-bottom:none;}
+.oi-n{color:var(--white);}
+.oi-p{color:var(--yellow);font-family:var(--font);font-size:18px;}
+.oi-total{display:flex;justify-content:space-between;padding:12px 0 0;font-weight:700;border-top:1px solid rgba(255,255,255,.08);margin-top:6px;}
+.oi-total span:last-child{color:var(--yellow);font-family:var(--font);font-size:24px;}
+
+/* LOADING SPINNER */
+.loading-state{text-align:center;padding:40px 20px;}
+.spinner{width:40px;height:40px;border:3px solid rgba(245,200,66,.2);border-top-color:var(--yellow);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-state p{color:var(--gray);font-size:14px;}
+
+/* DECLINED STATE */
+.declined-state{text-align:center;padding:40px 20px;}
+.declined-icon{font-size:52px;margin-bottom:12px;}
+.declined-title{font-family:var(--font);font-size:28px;color:#F44336;margin-bottom:8px;}
+.declined-sub{font-size:14px;color:var(--gray);}
+
+/* DELIVERED CELEBRATION */
+.celebrate{text-align:center;padding:24px 0;}
+.celebrate-icon{font-size:60px;margin-bottom:10px;animation:bounce2 .8s ease-in-out infinite alternate;}
+@keyframes bounce2{from{transform:translateY(0);}to{transform:translateY(-10px);}}
+.celebrate h2{font-family:var(--font);font-size:30px;color:var(--yellow);letter-spacing:1px;margin-bottom:8px;}
+.celebrate p{font-size:14px;color:var(--gray);}
+
+/* CONN STATUS */
+.conn-bar{background:var(--black3);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius-s);padding:10px 14px;font-size:12px;color:var(--gray);margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+.cb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.cb-dot.ok{background:#4CAF50;} .cb-dot.err{background:#F44336;} .cb-dot.loading{background:#FFA500;animation:blink2 1s ease-in-out infinite;}
+</style>
+</head>
+<body style="background:var(--black)">
+<nav class="navbar scrolled">
+  <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">
+    <div class="nav-logo-icon tp-logo">🥔</div>
+    <div class="nav-brand-text"><span class="nav-brand-name tp-brand">TEMPURA</span><span class="nav-brand-sub">POTATO</span></div>
+  </div>
+  <div class="nav-links"><a href="index.html">← Back to Menu</a></div>
+</nav>
+
+<div class="track-page">
+  <div style="margin-bottom:24px">
+    <div class="sh-tag">LIVE ORDER</div>
+    <h1 style="font-family:var(--font);font-size:clamp(34px,7vw,58px);color:var(--white)">Track Your <span style="color:var(--yellow)">Order</span></h1>
+  </div>
+
+  <div class="conn-bar" id="conn-bar">
+    <div class="cb-dot loading" id="cb-dot"></div>
+    <span id="cb-label">Connecting to server...</span>
+  </div>
+
+  <div class="order-id-bar">
+    <div>Order ID: <strong id="disp-oid">—</strong></div>
+    <span id="order-ts" style="font-size:11px;color:var(--gray)">—</span>
+  </div>
+
+  <div class="eta-card">
+    <div class="eta-icon">⏱️</div>
+    <div>
+      <div class="eta-lbl">Estimated Delivery</div>
+      <div class="eta-val" id="eta-val">—</div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-state" id="loading-state">
+    <div class="spinner"></div>
+    <p>Loading your order status...</p>
+  </div>
+
+  <!-- DECLINED -->
+  <div class="declined-state" id="declined-state" style="display:none">
+    <div class="declined-icon">❌</div>
+    <div class="declined-title">Order Declined</div>
+    <div class="declined-sub">Sorry, your order was declined. Please contact us or try ordering again.</div>
+    <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="tel:+923044888775" class="btn-p" style="font-size:14px;padding:11px 22px">📞 Call Us</a>
+      <a href="index.html#menu" class="btn-s" style="font-size:14px;padding:11px 22px">Try Again</a>
+    </div>
+  </div>
+
+  <!-- STATUS STEPS (hidden until order loads) -->
+  <div id="track-content" style="display:none">
+    <div class="steps-card">
+      <h2>Order Status</h2>
+      <div class="steps">
+        <div class="step" id="step-accepted">
+          <div class="step-icon">✅</div>
+          <div class="step-info">
+            <div class="step-name">Order Accepted</div>
+            <div class="step-desc">Your order has been confirmed by the restaurant</div>
+            <div class="step-time" id="t-accepted"></div>
+          </div>
+        </div>
+        <div class="step" id="step-preparing">
+          <div class="step-icon">👨‍🍳</div>
+          <div class="step-info">
+            <div class="step-name">Preparing</div>
+            <div class="step-desc">Our chefs are cooking your food fresh right now</div>
+            <div class="step-time" id="t-preparing"></div>
+          </div>
+        </div>
+        <div class="step" id="step-onway">
+          <div class="step-icon">🛵</div>
+          <div class="step-info">
+            <div class="step-name">On the Way</div>
+            <div class="step-desc">Your rider is heading to your location</div>
+            <div class="step-time" id="t-onway"></div>
+          </div>
+        </div>
+        <div class="step" id="step-delivered">
+          <div class="step-icon">🎉</div>
+          <div class="step-info">
+            <div class="step-name">Delivered</div>
+            <div class="step-desc">Enjoy your meal! Thank you for ordering.</div>
+            <div class="step-time" id="t-delivered"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rider-card" id="rider-card">
+      <h2>Your Rider</h2>
+      <div class="rider-inner">
+        <div class="rider-av">🛵</div>
+        <div class="rider-det">
+          <div class="rider-nm" id="rider-nm">—</div>
+          <div class="rider-veh" id="rider-veh">—</div>
+        </div>
+        <a class="rider-call" id="rider-call" href="#">📞 Call Rider</a>
+      </div>
+    </div>
+
+    <div class="map-card" id="map-card">
+      <iframe id="map-frame" src="about:blank" allowfullscreen loading="lazy"></iframe>
+      <div class="map-lbl"><div class="live-dot"></div> Rider location updating live</div>
+    </div>
+
+    <div class="items-card" id="items-card">
+      <h2>Your Items</h2>
+      <div id="items-list"></div>
+    </div>
+
+    <div style="text-align:center;margin-top:24px">
+      <a href="index.html#menu" class="btn-s" style="display:inline-flex;font-size:14px">Order Again 🍔</a>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/parse/dist/parse.min.js"></script>
+<script src="main.js"></script>
+<script>
+// ============================================================
+//  TRACKING PAGE — FULLY FIXED
+//  FIX 1: No auto-demo mode. Only loads from Back4App.
+//  FIX 2: Shows clear "pending" state while order is waiting
+//  FIX 3: Polls every 5s for real status updates from admin
+//  FIX 4: Steps only advance when admin actually changes status
+// ============================================================
+
+const params  = new URLSearchParams(location.search);
+const orderId = params.get('order') || '';
+let   pollInterval = null;
+let   lastStatus   = null;
+
+document.getElementById('disp-oid').textContent = orderId ? '#' + orderId.slice(-8) : '#DEMO';
+
+// Connection status
+function setConn(state, label) {
+  const dot = document.getElementById('cb-dot');
+  const lbl = document.getElementById('cb-label');
+  dot.className = 'cb-dot ' + state;
+  lbl.textContent = label;
+}
+
+// Status level map — only real statuses
+const STATUS_LEVEL = { pending:0, accepted:1, preparing:2, onway:3, delivered:4 };
+const STEP_IDS     = ['step-accepted','step-preparing','step-onway','step-delivered'];
+const TIME_IDS     = ['t-accepted','t-preparing','t-onway','t-delivered'];
+const STATUS_KEYS  = ['accepted','preparing','onway','delivered'];
+
+function updateSteps(status, statusLog) {
+  const level = STATUS_LEVEL[status] || 0;
+
+  STEP_IDS.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('done','active');
+    if (i < level) el.classList.add('done');
+    else if (i === level - 1) el.classList.add('active');
+  });
+
+  // Fill in timestamps from the log
+  if (statusLog) {
+    STATUS_KEYS.forEach((k, i) => {
+      const el = document.getElementById(TIME_IDS[i]);
+      if (statusLog[k]) {
+        el.textContent = new Date(statusLog[k]).toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit'});
+      }
+    });
+  }
+
+  // Update ETA based on status
+  const etaMap = {
+    pending:   'Waiting for restaurant…',
+    accepted:  '25–35 mins',
+    preparing: '15–25 mins',
+    onway:     '5–15 mins',
+    delivered: 'Delivered! 🎉',
+  };
+  document.getElementById('eta-val').textContent = etaMap[status] || '—';
+
+  // Show rider card and map only when on the way
+  if (level >= 3) {
+    document.getElementById('rider-card').classList.add('show');
+    document.getElementById('map-card').classList.add('show');
+  }
+
+  // Delivery celebration
+  if (status === 'delivered' && lastStatus !== 'delivered') {
+    document.getElementById('map-card').classList.remove('show');
+    addCelebration();
+  }
+
+  lastStatus = status;
+}
+
+function addCelebration() {
+  const existing = document.getElementById('celebrate-block');
+  if (existing) return;
+  const div = document.createElement('div');
+  div.id = 'celebrate-block';
+  div.className = 'celebrate';
+  div.innerHTML = '<div class="celebrate-icon">🎉</div><h2>Order Delivered!</h2><p>Enjoy your meal! Come back soon 🥔</p>';
+  document.getElementById('items-card').insertAdjacentElement('beforebegin', div);
+}
+
+function setRider(order) {
+  if (!order.riderName) return;
+  document.getElementById('rider-nm').textContent  = order.riderName;
+  document.getElementById('rider-veh').textContent = order.riderVehicle || 'Motorcycle';
+  const ca = document.getElementById('rider-call');
+  if (order.riderPhone) ca.href = 'tel:' + order.riderPhone;
+  // Update map with rider location if available
+  if (order.riderLat && order.riderLng) {
+    document.getElementById('map-frame').src =
+      `https://maps.google.com/maps?q=${order.riderLat},${order.riderLng}&z=15&output=embed`;
+  } else {
+    // Show restaurant location as fallback
+    document.getElementById('map-frame').src =
+      `https://maps.google.com/maps?q=31.5204,74.3587&z=14&output=embed`;
+  }
+}
+
+function renderItems(order) {
+  const list  = document.getElementById('items-list');
+  const items = order.items || [];
+  if (!items.length) { list.innerHTML = '<p style="color:var(--gray);font-size:14px">No items data.</p>'; return; }
+  list.innerHTML = items.map(i =>
+    `<div class="oi-row"><span class="oi-n">${i.name} ×${i.qty}</span><span class="oi-p">Rs.${i.price * i.qty}</span></div>`
+  ).join('') + `<div class="oi-total"><span>Total Paid</span><span>Rs. ${order.total || order.subtotal || 0}</span></div>`;
+  if (order.timestamp) {
+    document.getElementById('order-ts').textContent = new Date(order.timestamp).toLocaleString('en-PK',{dateStyle:'short',timeStyle:'short'});
+  }
+}
+
+function showTrackContent() {
+  document.getElementById('loading-state').style.display  = 'none';
+  document.getElementById('declined-state').style.display = 'none';
+  document.getElementById('track-content').style.display  = 'block';
+}
+
+function showDeclined() {
+  document.getElementById('loading-state').style.display  = 'none';
+  document.getElementById('track-content').style.display  = 'none';
+  document.getElementById('declined-state').style.display = 'block';
+  document.getElementById('eta-val').textContent = 'Order Declined';
+}
+
+// ─── MAIN: fetch and track order ──────────────────────────
+async function startTracking() {
+  // Wait for Parse SDK
+  const ready = await TP.waitForParse(8000);
+  if (!ready) {
+    setConn('err', 'Connection failed');
+    document.getElementById('loading-state').innerHTML = '<p style="color:#F44336">Could not connect to server. Check your internet connection.</p>';
+    return;
+  }
+  setConn('ok', 'Connected');
+
+  // If no orderId, show a demo/waiting state
+  if (!orderId || orderId === 'demo') {
+    showDemoState();
+    return;
+  }
+
+  // Fetch order from Back4App
+  await fetchAndRender();
+
+  // Poll every 5 seconds for updates
+  // FIX: This only updates steps when admin changes status — no auto-advance
+  pollInterval = setInterval(fetchAndRender, 5000);
+}
+
+async function fetchAndRender() {
+  try {
+    const order = await TP.b4aGetOrder(orderId);
+    if (!order) {
+      // Order not found — might still be saving, show pending
+      showTrackContent();
+      updateSteps('pending', {});
+      setConn('ok', 'Waiting for restaurant...');
+      return;
+    }
+    setConn('ok', 'Live tracking active');
+    showTrackContent();
+    updateSteps(order.status || 'pending', order.statusLog || {});
+    renderItems(order);
+    setRider(order);
+    if (order.status === 'declined') {
+      showDeclined();
+      clearInterval(pollInterval);
+    }
+    if (order.status === 'delivered') {
+      clearInterval(pollInterval); // Stop polling after delivery
+    }
+  } catch(e) {
+    setConn('err', 'Error: ' + e.message);
+    console.error('[Track]', e);
+  }
+}
+
+// Demo/no-order state
+function showDemoState() {
+  showTrackContent();
+  updateSteps('pending', {});
+  document.getElementById('eta-val').textContent = 'Waiting for restaurant…';
+  renderItems({ items: JSON.parse(localStorage.getItem('tp_cart_v4')||'[]'), total: 0 });
+  setConn('ok', 'Waiting for order acceptance...');
+}
+
+// Start tracking on page load
+document.addEventListener('DOMContentLoaded', startTracking);
+</script>
+</body>
+</html>
